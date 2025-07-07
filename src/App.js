@@ -2,6 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { fetchDashboardData } from './services/googleSheets';
 
+// TOOLTIP COMPONENTS
+const codeBasedEvalTooltips = {
+  'META Quality': 'Overall quality score for the chat session.',
+  'LLM Model used': 'The language model used for evaluation.',
+  'Cost': 'Estimated cost for the chat session.',
+  '7-day CVR %': 'Conversion rate over the last 7 days.',
+  'Total Number of Chats': 'Total chats handled in the period.',
+  'Handling %': 'Percentage of chats handled by the bot.',
+  'Agent intervention %': 'Percentage of chats requiring agent intervention.',
+  'Repetition %': 'Percentage of chats with repeated responses.',
+  'Avg Delay - Initial msg': 'Average delay before the first message.',
+  'Avg Delay - non-initial msg': 'Average delay for subsequent messages.',
+  '% Engagement for filler': 'Percentage of engagement for filler/closing messages.'
+};
+
 const Dashboard = () => {
   // Get yesterday's date as default
   const getYesterdayDate = () => {
@@ -83,7 +98,7 @@ const Dashboard = () => {
       enabled: true,
       notAvailableText: 'Not available'
     },
-    '% Engagement for closing & filler': {
+    '% Engagement for filler': {
       enabled: false,
       notAvailableText: 'Not available'
     },
@@ -239,6 +254,7 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [definitionsOpen, setDefinitionsOpen] = useState(false);
 
   // Initialize filters from URL parameters
   useEffect(() => {
@@ -402,93 +418,120 @@ const Dashboard = () => {
         </div>
 
         {/* Section 2: Definitions */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">Definitions</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eval</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formula</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action to be taken</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {dashboardData.definitions.map((item, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.eval}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.metric}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{item.description}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{item.formula}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900">{item.action}</td>
+        <div className="bg-white rounded-lg shadow-sm mb-8">
+          <button
+            className="w-full flex justify-between items-center p-6 focus:outline-none"
+            onClick={() => setDefinitionsOpen(!definitionsOpen)}
+            aria-expanded={definitionsOpen}
+            aria-controls="definitions-drawer"
+          >
+            <span className="text-xl font-bold text-gray-900">Definitions</span>
+            <svg
+              className={`w-6 h-6 transform transition-transform duration-200 ${definitionsOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {definitionsOpen && (
+            <div id="definitions-drawer" className="overflow-x-auto px-6 pb-6">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Eval</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formula</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action to be taken</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {dashboardData.definitions.map((item, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{item.eval}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.metric}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{item.description}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{item.formula}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{item.action}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Section 3: Today's Snapshot */}
         <div className="mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">{getCurrentDate()} – Today's snapshot</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Today's snapshot</h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Code-Based Evals */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Code-Based Evals</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">META Quality</span>
-                  {renderSnapshotValue('META Quality', dashboardData.snapshot['META Quality'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">LLM Model used</span>
-                  {renderSnapshotValue('LLM Model used', dashboardData.snapshot['LLM Model used'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Cost</span>
-                  {renderSnapshotValue('Cost', dashboardData.snapshot['Cost'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">7-day CVR %</span>
-                  {renderSnapshotValue('7-day CVR %', dashboardData.snapshot['7-day CVR %'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Total Number of Chats</span>
-                  {renderSnapshotValue('Total Number of Chats', dashboardData.snapshot['Total Number of Chats'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Handling %</span>
-                  {renderSnapshotValue('Handling %', dashboardData.snapshot['Handling %'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Agent intervention %</span>
-                  {renderSnapshotValue('Agent intervention %', dashboardData.snapshot['Agent intervention %'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Repetition %</span>
-                  {renderSnapshotValue('Repetition %', dashboardData.snapshot['Repetition %'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Avg Delay - Initial msg</span>
-                  {renderSnapshotValue('Avg Delay - Initial msg', dashboardData.snapshot['Avg Delay - Initial msg'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Avg Delay - non-initial msg</span>
-                  {renderSnapshotValue('Avg Delay - non-initial msg', dashboardData.snapshot['Avg Delay - non-initial msg'])}
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">% Engagement for closing & filler</span>
-                  {renderSnapshotValue('% Engagement for closing & filler', dashboardData.snapshot['% Engagement for closing & filler'])}
-                </div>
-              </div>
-            </div>
+<div className="bg-white rounded-lg shadow-sm p-6">
+  <h4 className="text-lg font-semibold text-gray-900 mb-4">Code-Based Evals</h4>
+  <div className="space-y-3">
+    {[
+      'META Quality',
+      'LLM Model used',
+      'Cost',
+      'Total Number of Chats',
+      'Handling %',
+      'Agent intervention %',
+      'Repetition %',
+      'Avg Delay - Initial msg',
+      'Avg Delay - non-initial msg'
+    ].map((metric) => (
+      <div className="flex justify-between items-center" key={metric}>
+        <span className="text-sm text-gray-600 flex items-center">
+          {metric}
+          <span className="relative group align-super ml-1">
+            <span className="inline-flex items-center justify-center w-3 h-3 rounded-full border border-gray-400 text-[8px] font-bold text-gray-500 bg-white ml-1 cursor-pointer select-none">
+              i
+            </span>
+            <span className="absolute left-5 top-1/2 -translate-y-1/2 z-10 w-48 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              {codeBasedEvalTooltips[metric]}
+            </span>
+          </span>
+        </span>
+        {renderSnapshotValue(metric, dashboardData.snapshot[metric])}
+      </div>
+    ))}
 
-            {/* LLM As a Judge */}
+    {/* --- Sales-Specific section --- */}
+    <div className="border-t pt-3 mt-4">
+      <h5 className="text-sm font-semibold text-gray-900 mb-2">Sales-Specific</h5>
+      <div className="space-y-2">
+        {[
+          '% Engagement for closing & filler',
+          '7-day CVR %'
+        ].map((metric) => (
+          <div className="flex justify-between items-center" key={metric}>
+            <span className="text-sm text-gray-600 flex items-center">
+              {metric}
+              <span className="relative group align-super ml-1">
+                <span className="inline-flex items-center justify-center w-3 h-3 rounded-full border border-gray-400 text-[8px] font-bold text-gray-500 bg-white ml-1 cursor-pointer select-none">
+                  i
+                </span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 z-10 w-48 bg-gray-800 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  {codeBasedEvalTooltips[metric]}
+                </span>
+              </span>
+            </span>
+            {renderSnapshotValue(metric, dashboardData.snapshot[metric])}
+          </div>
+        ))}
+      </div>
+    </div>
+    {/* --- End Sales-Specific section --- */}
+  </div>
+</div>
+
+
+            {/* LLM-as-a-Judge */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">LLM As a Judge</h4>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">LLM-as-a-Judge</h4>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Loss of interest</span>
@@ -551,6 +594,10 @@ const Dashboard = () => {
                   <span className="text-sm text-gray-600">Reported issue</span>
                   {renderSnapshotValue('Reported issue', dashboardData.snapshot['Reported issue'])}
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Issues Pending to be Solved</span>
+                  {renderSnapshotValue('Issues Pending to be Solved', dashboardData.snapshot['Issues Pending to be Solved'])}
+                </div>
               </div>
             </div>
           </div>
@@ -558,7 +605,7 @@ const Dashboard = () => {
 
         {/* Section 4: Conversion Funnel */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">{getCurrentDate()} – Conversion funnel</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Conversion funnel</h3>
           {renderDashboardSection('conversionFunnel', 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -587,7 +634,7 @@ const Dashboard = () => {
 
         {/* Section 5: Loss of Interest */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">{getCurrentDate()} – Loss of interest</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Loss of interest</h3>
           {renderDashboardSection('lossOfInterestTable',
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -616,7 +663,7 @@ const Dashboard = () => {
 
         {/* Section 6-8: Trendlines */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">{getCurrentDate()} – Trendlines</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Trendlines</h3>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* CVR within 7 days */}
@@ -630,7 +677,7 @@ const Dashboard = () => {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
-                      <Legend />
+                      <Legend verticalAlign="top" align="center" />
                       <Line type="monotone" dataKey="chats" stroke="#fbbf24" name="# chats" label={{ position: 'top' }} />
                       <Line type="monotone" dataKey="cvr" stroke="#f97316" name="% CVR" label={{ position: 'top' }} />
                       <Line type="monotone" dataKey="cvr7dma" stroke="#dc2626" name="% CVR 7DMA" label={{ position: 'top' }} />
@@ -651,7 +698,7 @@ const Dashboard = () => {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
-                      <Legend />
+                      <Legend verticalAlign="top" align="center" />
                       <Line type="monotone" dataKey="lossInterest" stroke="#fbbf24" name="% loss interest" label={{ position: 'top' }} />
                       <Line type="monotone" dataKey="lossPricing" stroke="#f97316" name="% loss pricing" label={{ position: 'top' }} />
                       <Line type="monotone" dataKey="loss7dma" stroke="#dc2626" name="% loss 7DMA" label={{ position: 'top' }} />
@@ -670,7 +717,7 @@ const Dashboard = () => {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" align="center" />
                   <Line type="monotone" dataKey="chatsRep" stroke="#fbbf24" name="% Chats Rep" label={{ position: 'top' }} />
                   <Line type="monotone" dataKey="chatsRep7dma" stroke="#f97316" name="% Chats Rep 7DMA" label={{ position: 'top' }} />
                 </LineChart>
@@ -686,7 +733,7 @@ const Dashboard = () => {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" align="center" />
                   <Line type="monotone" dataKey="avgDelayInit" stroke="#fbbf24" name="Avg delay init" label={{ position: 'top' }} />
                   <Line type="monotone" dataKey="avgDelayNon" stroke="#f97316" name="Avg delay non" label={{ position: 'top' }} />
                   <Line type="monotone" dataKey="init4m" stroke="#dc2626" name="Init ≥4 m" label={{ position: 'top' }} />
@@ -714,7 +761,7 @@ const Dashboard = () => {
                       <XAxis dataKey="date" />
                       <YAxis />
                       <Tooltip />
-                      <Legend />
+                      <Legend verticalAlign="top" align="center" />
                       <Line type="monotone" dataKey="wrongTools" stroke="#fbbf24" name="% wrong tools" label={{ position: 'top' }} />
                       <Line type="monotone" dataKey="toolsMissed" stroke="#f97316" name="% tools missed" label={{ position: 'top' }} />
                     </LineChart>
@@ -727,7 +774,7 @@ const Dashboard = () => {
 
         {/* Rules and Policy Performance */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-6">{getCurrentDate()} – Rules & Policy Performance</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-6">Rules & Policy Performance</h3>
           <div className="h-[400px] flex items-center justify-center">
             {renderDashboardSection('rulesAndPolicy',
               <ResponsiveContainer width="100%" height={400}>
@@ -736,7 +783,7 @@ const Dashboard = () => {
                   <XAxis dataKey="date" />
                   <YAxis />
                   <Tooltip />
-                  <Legend />
+                  <Legend verticalAlign="top" align="center" />
                   <Line type="monotone" dataKey="ruleBreak" stroke="#fbbf24" name="% rule-break" label={{ position: 'top' }} />
                   <Line type="monotone" dataKey="missing" stroke="#f97316" name="% missing" label={{ position: 'top' }} />
                   <Line type="monotone" dataKey="unclear" stroke="#dc2626" name="% unclear" label={{ position: 'top' }} />
