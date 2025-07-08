@@ -444,7 +444,7 @@ const Dashboard = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Metric</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Formula</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action to be taken</th>
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action to be taken</th> */}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -454,7 +454,7 @@ const Dashboard = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.metric}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{item.description}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">{item.formula}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{item.action}</td>
+                      {/* <td className="px-6 py-4 text-sm text-gray-900">{item.action}</td> */}
                     </tr>
                   ))}
                 </tbody>
