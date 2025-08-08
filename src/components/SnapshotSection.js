@@ -555,14 +555,14 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     }
   };
 
-  // Handle click on Clarity Score % for Doctors
+  // Handle click on Clarification Requested % for Doctors
   const handleDoctorsClarityScoreClick = async () => {
-    console.log('Doctors Clarity Score % clicked for:', selectedDepartment, selectedDate);
+    console.log('Doctors Clarification Requested % clicked for:', selectedDepartment, selectedDate);
     try {
       await navigateToDoctorsClarityScoreSheet(selectedDepartment, selectedDate);
     } catch (error) {
-      console.error('Error navigating to Doctors clarity score sheet:', error);
-      alert('Error opening Doctors clarity score sheet. Please try again.');
+      console.error('Error navigating to Doctors Clarification Requestedsheet:', error);
+      alert('Error opening Doctors Clarification Requestedsheet. Please try again.');
     }
   };
 
@@ -600,12 +600,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   };
 
   const handleClarityScoreClick = async () => {
-    console.log('Clarity Score % clicked for:', selectedDepartment, selectedDate);
+    console.log('Clarification Requested % clicked for:', selectedDepartment, selectedDate);
     try {
       await navigateToClarityScoreSheet(selectedDepartment, selectedDate);
     } catch (error) {
-      console.error('Error navigating to Clarity Score sheet:', error);
-      alert('Error opening Clarity Score sheet. Please try again.');
+      console.error('Error navigating to Clarification Requestedsheet:', error);
+      alert('Error opening Clarification Requestedsheet. Please try again.');
     }
   };
 
@@ -1387,7 +1387,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                     {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') && (
                       <>
                         <Divider sx={{ my: 2 }} />
-                        <MetricRow label="7D cohort - 3DW" fieldName="7D cohort - 3DW" icon={SnowflakeIcon} />
+                        <MetricRow label="7D cohort - 3DW %" fieldName="7D cohort - 3DW %" icon={SnowflakeIcon} />
                       </>
                     )}
                   </Stack>
@@ -1456,8 +1456,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           isClickable={true}
                         />
                         <MetricRow 
-                          label="Clarity Score %" 
-                          fieldName="Clarity Score %" 
+                          label="Clarification Requested %" 
+                          fieldName="Clarification Requested %" 
                           clickHandler={handleClarityScoreClick}
                           isClickable={true}
                         />
@@ -1509,8 +1509,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           isClickable={true}
                         />
                         <MetricRow 
-                          label="Clarity Score %" 
-                          fieldName="Clarity Score %"
+                          label="Clarification Requested %" 
+                          fieldName="Clarification Requested %"
                           clickHandler={handleDoctorsClarityScoreClick}
                           isClickable={true}
                         />

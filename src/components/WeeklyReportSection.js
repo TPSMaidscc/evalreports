@@ -100,7 +100,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                       </Typography>
                     </Grid>
                     <Grid item xs={12}>
-                      <Typography variant="body2" color="text.secondary">7D cohort - 7DW:</Typography>
+                      <Typography variant="body2" color="text.secondary">7D cohort - 7DW %:</Typography>
                       <Typography variant="body2" fontWeight={500}>
                         {isCC ? (row.E || row.cvr7days || '-') : (row.D || row.cvr7days || '-')}
                       </Typography>
@@ -129,7 +129,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW:</Typography>
+                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW %:</Typography>
                         <Typography variant="body2">
                           {isCC ? (row.G || '-') : (row.F || '-')}
                         </Typography>
@@ -150,7 +150,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW:</Typography>
+                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW %:</Typography>
                         <Typography variant="body2">
                           {isCC ? (row.I || '-') : (row.H || '-')}
                         </Typography>
@@ -171,7 +171,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                         </Typography>
                       </Grid>
                       <Grid item xs={6}>
-                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW:</Typography>
+                        <Typography variant="body2" color="text.secondary">7D cohort - 7DW %:</Typography>
                         <Typography variant="body2">
                           {isCC ? (row.K || '-') : (row.J || '-')}
                         </Typography>
@@ -195,7 +195,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                       </Typography>
                     </Grid>
                     <Grid item xs={6}>
-                      <Typography variant="body2" color="text.secondary">Best 7D cohort - 7DW:</Typography>
+                      <Typography variant="body2" color="text.secondary">Best 7D cohort - 7DW %:</Typography>
                       <Typography variant="body2" fontWeight={500} color="success.main">
                         {isCC ? (row.M || '-') : (row.L || '-')}
                       </Typography>
@@ -310,7 +310,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
             Lost Interest %
               </TableCell>
               <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
-              7D cohort - 7DW
+              7D cohort - 7DW %
               </TableCell>
               <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
             {prev1WeekRange}
@@ -325,7 +325,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
             Lowest Lost Interest %
               </TableCell>
               <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
-            Best 7D cohort - 7DW
+            Best 7D cohort - 7DW %
               </TableCell>
             </TableRow>
 
@@ -340,7 +340,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                     color: 'white'
                   }}
                 >
-                  {index % 2 === 0 ? 'Lost Interest %' : '7D cohort - 7DW'}
+                  {index % 2 === 0 ? 'Lost Interest %' : '7D cohort - 7DW %'}
                 </TableCell>
               ))}
             </TableRow>

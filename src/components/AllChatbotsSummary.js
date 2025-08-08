@@ -178,7 +178,7 @@ const AllChatbotsSummary = ({ selectedDate }) => {
                   <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '150px', backgroundColor: '#4A90E2', color: 'white' }}>
                     {new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
                   </StyledTableCell>
-                  <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '120px', backgroundColor: '#4A90E2', color: 'white' }}>7D cohort - 3DW</StyledTableCell>
+                  <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '120px', backgroundColor: '#4A90E2', color: 'white' }}>7D cohort - 3DW %</StyledTableCell>
                   
                   {/* Delays header (cols 10-11) */}
                   <StyledTableCell colSpan={2} isHeader sx={{ backgroundColor: '#4A90E2', color: 'white' }}>Delays (Secs)</StyledTableCell>

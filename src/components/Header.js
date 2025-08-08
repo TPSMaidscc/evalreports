@@ -294,7 +294,7 @@ const Header = ({
       
       // Trendlines (stacked subplots - one per page) - landscape
       const trendlineConfigs = [
-        { id: 'cvr-subplot', title: '7D cohort - 3DW' },
+        { id: 'cvr-subplot', title: '7D cohort - 3DW %' },
         { id: 'cost-subplot', title: 'Cost Analysis' },
         { id: 'repetition-subplot', title: 'Chats with Repetition' },
         { id: 'delays-subplot', title: 'Average Delays & 4-min Messages' },

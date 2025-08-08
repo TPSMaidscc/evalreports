@@ -2012,7 +2012,7 @@ export const navigateToPolicyEscalationSheet = async (department, date) => {
   }
 };
 
-// Function to navigate to Clarity Score sheet
+// Function to navigate to Clarification Requestedsheet
 export const navigateToClarityScoreSheet = async (department, date) => {
   try {
     const spreadsheetId = '1AUN7_sJkFZXxhz63HM6FngRh-z3S6S5r4_D8hssAUHU';
@@ -2029,7 +2029,7 @@ export const navigateToClarityScoreSheet = async (department, date) => {
       if (gid !== null) {
         // Use the correct URL format with GID
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
-        console.log('Opening Clarity Score URL with GID:', sheetUrl);
+        console.log('Opening Clarification RequestedURL with GID:', sheetUrl);
         console.log('Sheet GID:', gid);
         console.log('Sheet name:', sheetName);
         console.log('Department:', department);
@@ -2049,15 +2049,15 @@ export const navigateToClarityScoreSheet = async (department, date) => {
       }
     } catch (error) {
       if (error.message.includes('Bad Request')) {
-        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Clarity Score spreadsheet.`);
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Clarification Requestedspreadsheet.`);
       } else {
         console.error('Error checking sheet existence:', error);
         alert('Error checking if the sheet exists. Please try again.');
       }
     }
   } catch (error) {
-    console.error('Error navigating to Clarity Score sheet:', error);
-    alert('Error opening Clarity Score sheet. Please try again.');
+    console.error('Error navigating to Clarification Requestedsheet:', error);
+    alert('Error opening Clarification Requestedsheet. Please try again.');
   }
 };
 
@@ -2488,7 +2488,7 @@ export const navigateToDoctorsPolicyEscalationSheet = async (department, date) =
   }
 };
 
-// Function to navigate to Clarity Score sheet for Doctors
+// Function to navigate to Clarification Requestedsheet for Doctors
 export const navigateToDoctorsClarityScoreSheet = async (department, date) => {
   try {
     const spreadsheetId = '1OZuuxlXi7c0OjWhwLbjxkHh34mZSqYXTBC-Rbo5wVAg';
@@ -2505,7 +2505,7 @@ export const navigateToDoctorsClarityScoreSheet = async (department, date) => {
       if (gid !== null) {
         // Use the correct URL format with GID
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
-        console.log('Opening Doctors Clarity Score URL with GID:', sheetUrl);
+        console.log('Opening Doctors Clarification RequestedURL with GID:', sheetUrl);
         console.log('Sheet GID:', gid);
         console.log('Sheet name:', sheetName);
         console.log('Department:', department);
@@ -2525,15 +2525,15 @@ export const navigateToDoctorsClarityScoreSheet = async (department, date) => {
       }
     } catch (error) {
       if (error.message.includes('Bad Request')) {
-        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Doctors Clarity Score spreadsheet.`);
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Doctors Clarification Requestedspreadsheet.`);
       } else {
         console.error('Error checking sheet existence:', error);
         alert('Error checking if the sheet exists. Please try again.');
       }
     }
   } catch (error) {
-    console.error('Error navigating to Doctors Clarity Score sheet:', error);
-    alert('Error opening Doctors Clarity Score sheet. Please try again.');
+    console.error('Error navigating to Doctors Clarification Requestedsheet:', error);
+    alert('Error opening Doctors Clarification Requestedsheet. Please try again.');
   }
 };
 

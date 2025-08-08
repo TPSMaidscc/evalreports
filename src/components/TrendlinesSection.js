@@ -197,13 +197,13 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
               </ChartContainer>
             </Box>
 
-            {/* 7D cohort - 3DW */}
+            {/* 7D cohort - 3DW % */}
             {shouldShowSection('cvrWithin7Days') && (
               <Box>
-                <ChartContainer id="cvr-subplot" title="7D cohort - 3DW (Last 30 days)" toggleType="cvr">
+                <ChartContainer id="cvr-subplot" title="7D cohort - 3DW  (Last 30 days)" toggleType="cvr">
                   {renderDashboardSection('cvrWithin7Days',
                     <StackedSubplots 
-                      title="7D cohort - 3DW (Last 30 days)"
+                      title="7D cohort - 3DW  (Last 30 days)"
                       data={dashboardData.trendlines.cvrData}
                       metrics={createChartData(dashboardData, 'cvr', toggles.cvr).metrics}
                     />
