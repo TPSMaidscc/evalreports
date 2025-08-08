@@ -27,6 +27,7 @@ import {
   FormControl,
   Select,
   MenuItem,
+  CircularProgress,
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -291,8 +292,101 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     similarityEighty: false
   });
 
+  // Loading states for metric navigation
+  const [loadingStates, setLoadingStates] = useState({
+    totalChats: false,
+    botHandled: false,
+    repetition: false,
+    similarity: false,
+    shadowing: false,
+    unresponsive: false
+  });
+
   const handleDefinitionsChange = (event, isExpanded) => {
     setDefinitionsExpanded(isExpanded);
+  };
+
+  // Department mapping for the new API
+  const getDepartmentForAPI = (department, subDepartment = 'All') => {
+    if (department === 'AT Filipina') {
+      if (subDepartment === 'Inside UAE') return 'AT_Filipina_Inside_UAE';
+      if (subDepartment === 'Outside UAE') return 'AT_Filipina_Outside_UAE';
+      if (subDepartment === 'In PHL') return 'AT_Filipina_In_PHL';
+      return 'AT_Filipina';
+    }
+
+    const departmentMap = {
+      'CC Sales': 'CC_Sales',
+      'MV Resolvers': 'MV_Resolvers',
+      'CC Resolvers': 'CC_Resolvers',
+      'MV Sales': 'MV_Sales',
+      'MaidsAT African': 'AT_African',
+      'MaidsAT Ethiopian': 'AT_Ethiopian',
+      'Doctors': 'Doctors',
+      'Delighters': 'Delighters'
+    };
+
+    return departmentMap[department] || department;
+  };
+
+  // Metric mapping for the new API
+  const getMetricForAPI = (metricType) => {
+    const metricMap = {
+      'totalChats': 'delays',
+      'botHandled': 'bot-handled',
+      'repetition': 'repetition',
+      'similarity': 'similarity',
+      'shadowing': 'shadowing',
+      'unresponsive': 'unresponsive'
+    };
+
+    return metricMap[metricType] || metricType;
+  };
+
+  // New API function for dates after 2025-08-05
+  const navigateWithNewAPI = async (metricType, department, date, subDepartment = 'All') => {
+    const cutoffDate = new Date('2025-08-05');
+    const selectedDateObj = new Date(date);
+
+    // Use old logic for dates before or equal to 2025-08-05
+    if (selectedDateObj <= cutoffDate) {
+      return false; // Indicate to use old logic
+    }
+
+    const loadingKey = metricType;
+    setLoadingStates(prev => ({ ...prev, [loadingKey]: true }));
+
+    try {
+      const apiDepartment = getDepartmentForAPI(department, subDepartment);
+      const apiMetric = getMetricForAPI(metricType);
+      const apiUrl = `https://codeeval-snowflake.up.railway.app/api/get-sheet/${apiDepartment}/${date}/${apiMetric}`;
+
+      console.log(`Calling new API: ${apiUrl}`);
+
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      console.log('API Response:', data);
+
+      if (data.success && data.tab_found && data.worksheet_gid) {
+        // Open the tab URL
+        window.open(data.tab_url, '_blank');
+      } else if (data.success && !data.tab_found) {
+        // Sheet found but tab not found
+        alert(`The ${metricType} raw data tab for ${date} does not exist in the spreadsheet.`);
+      } else {
+        // API call failed
+        alert(`Error: ${data.message || 'Failed to find the sheet data.'}`);
+      }
+
+      return true; // Indicate new API was used
+    } catch (error) {
+      console.error('Error calling new API:', error);
+      alert('Error accessing the sheet data. Please try again.');
+      return true; // Still indicate new API was attempted
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [loadingKey]: false }));
+    }
   };
 
   // Get department-specific icon
@@ -318,7 +412,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const handleTotalChatsClick = async () => {
     console.log('Total Chats clicked for:', selectedDepartment, selectedDate, selectedATFilipinaSubDept);
     try {
-      await navigateToRawDataSheet(selectedDepartment, selectedDate, selectedATFilipinaSubDept);
+      const usedNewAPI = await navigateWithNewAPI('totalChats', selectedDepartment, selectedDate, selectedATFilipinaSubDept);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateToRawDataSheet(selectedDepartment, selectedDate, selectedATFilipinaSubDept);
+      }
     } catch (error) {
       console.error('Error navigating to raw data sheet:', error);
       alert('Error opening raw data sheet. Please try again.');
@@ -329,7 +427,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const handleBotHandledClick = async () => {
     console.log('Bot Handled clicked for:', selectedDepartment, selectedDate);
     try {
-      await navigateToBotHandledSheet(selectedDepartment, selectedDate);
+      const usedNewAPI = await navigateWithNewAPI('botHandled', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateToBotHandledSheet(selectedDepartment, selectedDate);
+      }
     } catch (error) {
       console.error('Error navigating to bot handled sheet:', error);
       alert('Error opening bot handled sheet. Please try again.');
@@ -340,7 +442,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const handleRepetitionClick = async () => {
     console.log('Repetition clicked for:', selectedDepartment, selectedDate);
     try {
-      await navigateToRepetitionSheet(selectedDepartment, selectedDate);
+      const usedNewAPI = await navigateWithNewAPI('repetition', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateToRepetitionSheet(selectedDepartment, selectedDate);
+      }
     } catch (error) {
       console.error('Error navigating to repetition sheet:', error);
       alert('Error opening repetition sheet. Please try again.');
@@ -351,7 +457,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const handleUnresponsiveChatsClick = async () => {
     console.log('Unresponsive Chats clicked for:', selectedDepartment, selectedDate);
     try {
-      await navigateToUnresponsiveChatsSheet(selectedDepartment, selectedDate);
+      const usedNewAPI = await navigateWithNewAPI('unresponsive', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateToUnresponsiveChatsSheet(selectedDepartment, selectedDate);
+      }
     } catch (error) {
       console.error('Error navigating to unresponsive chats sheet:', error);
       alert('Error opening unresponsive chats sheet. Please try again.');
@@ -371,12 +481,16 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
 
   // Handle click on 80% Message similarity % label to navigate to 80% similarity sheet
   const handle80SimilarityClick = async () => {
-    console.log('80% Message similarity clicked for:', selectedDepartment, selectedDate);
+    console.log('Message similarity clicked for:', selectedDepartment, selectedDate);
     try {
-      await navigateTo80SimilaritySheet(selectedDepartment, selectedDate);
+      const usedNewAPI = await navigateWithNewAPI('similarity', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateTo80SimilaritySheet(selectedDepartment, selectedDate);
+      }
     } catch (error) {
-      console.error('Error navigating to 80% similarity sheet:', error);
-      alert('Error opening 80% similarity sheet. Please try again.');
+      console.error('Error navigating to similarity sheet:', error);
+      alert('Error opening similarity sheet. Please try again.');
     }
   };
 
@@ -386,7 +500,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const handleChatsShadowedClick = async () => {
     console.log('Chats shadowed % clicked for:', selectedDepartment, selectedDate);
     try {
-      await navigateToShadowingRawDataSheet(selectedDepartment, selectedDate);
+      const usedNewAPI = await navigateWithNewAPI('shadowing', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // Use old logic for dates <= 2025-08-05
+        await navigateToShadowingRawDataSheet(selectedDepartment, selectedDate);
+      }
     } catch (error) {
       console.error('Error navigating to shadowing raw data sheet:', error);
       alert('Error opening shadowing raw data sheet. Please try again.');
@@ -533,14 +651,15 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
 
 
   // Helper component for metric rows with tooltips
-  const MetricRow = ({ 
-    label, 
-    fieldName, 
-    clickHandler = null, 
+  const MetricRow = ({
+    label,
+    fieldName,
+    clickHandler = null,
     showTooltip = true,
     isClickable = false,
     icon = null,
-    isIndented = false
+    isIndented = false,
+    loading = false
   }) => {
     const hasTooltip = showTooltip && codeBasedEvalTooltips[label];
     
@@ -550,6 +669,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
           <Button
             onClick={clickHandler}
             variant="text"
+            disabled={loading}
             sx={{
               justifyContent: 'flex-start',
               textAlign: 'left',
@@ -563,8 +683,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                 backgroundColor: 'transparent',
                 textDecoration: 'underline',
               },
+              '&.Mui-disabled': {
+                color: theme.palette.text.secondary,
+              },
             }}
-            title={`Click to open ${label.toLowerCase()} data sheet`}
+            title={loading ? 'Loading...' : `Click to open ${label.toLowerCase()} data sheet`}
+            startIcon={loading ? <CircularProgress size={14} /> : null}
           >
             {children}
           </Button>
@@ -664,15 +788,16 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   };
 
   // Expandable MetricRow component for metrics with sub-metrics
-  const ExpandableMetricRow = ({ 
-    label, 
-    fieldName, 
+  const ExpandableMetricRow = ({
+    label,
+    fieldName,
     metricKey,
     subMetrics = [],
-    clickHandler = null, 
+    clickHandler = null,
     showTooltip = true,
     isClickable = false,
-    icon = null
+    icon = null,
+    loading = false
   }) => {
     const hasTooltip = showTooltip && codeBasedEvalTooltips[label];
     const isExpanded = expandedMetrics[metricKey];
@@ -690,6 +815,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
           <Button
             onClick={clickHandler}
             variant="text"
+            disabled={loading}
             sx={{
               justifyContent: 'flex-start',
               textAlign: 'left',
@@ -703,8 +829,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                 backgroundColor: 'transparent',
                 textDecoration: 'underline',
               },
+              '&.Mui-disabled': {
+                color: theme.palette.text.secondary,
+              },
             }}
-            title={`Click to open ${label.toLowerCase()} data sheet`}
+            title={loading ? 'Loading...' : `Click to open ${label.toLowerCase()} data sheet`}
+            startIcon={loading ? <CircularProgress size={14} /> : null}
           >
             {children}
           </Button>
@@ -1145,70 +1275,75 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                     <MetricRow label="Chatbot prompt type" fieldName="Chatbot prompt type" />
                     <MetricRow label="N8N/ERP" fieldName="N8N/ERP" />
                     <MetricRow label="Cost ($)" fieldName="Cost ($)" />
-                    <MetricRow 
-                      label="Chats supposed to be handled by bot (#)" 
+                    <MetricRow
+                      label="Chats supposed to be handled by bot (#)"
                       fieldName="Chats supposed to be handled by bot (#)"
                       clickHandler={handleTotalChatsClick}
                       isClickable={true}
                       icon={SnowflakeIcon}
+                      loading={loadingStates.totalChats}
                     />
                     {/* Expandable metrics for CC Sales and MV Sales only */}
                     {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') ? (
                       <>
-                        <ExpandableMetricRow 
-                          label="Fully handled by bot %" 
+                        <ExpandableMetricRow
+                          label="Fully handled by bot %"
                           fieldName="Fully handled by bot %"
                           metricKey="fullyHandledBot"
                           clickHandler={handleBotHandledClick}
                           isClickable={true}
                           icon={SnowflakeIcon}
+                          loading={loadingStates.botHandled}
                           subMetrics={[
                             { label: "Chats with at least 1 agent message", fieldName: "Chats with at least 1 agent message" },
                             { label: "Chats with at least 2 agent message", fieldName: "Chats with at least 2 agent message" },
                             { label: "Chats with at least 3 agent message", fieldName: "Chats with at least 3 agent message" }
                           ]}
                         />
-                        <ExpandableMetricRow 
-                          label="Identical messages repeated % (Avg)" 
+                        <ExpandableMetricRow
+                          label="Identical messages repeated % (Avg)"
                           fieldName="Identical messages repeated % (Avg)"
                           metricKey="verbatimRepeated"
                           clickHandler={handleRepetitionClick}
                           isClickable={true}
                           icon={SnowflakeIcon}
+                          loading={loadingStates.repetition}
                           subMetrics={[
                             { label: "Repetition static messages %", fieldName: "Repetition static messages %" },
                             { label: "Repetition dynamic messages %", fieldName: "Repetition dynamic messages %" }
                           ]}
                         />
-                        <ExpandableMetricRow 
+                        <ExpandableMetricRow
                           label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
                           fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
                           metricKey="similarityEighty"
                           clickHandler={handle80SimilarityClick}
                           isClickable={true}
                           icon={SnowflakeIcon}
+                          loading={loadingStates.similarity}
                           subMetrics={[
-                            { 
-                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %", 
-                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %" 
+                            {
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %",
+                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %"
                             },
-                            { 
-                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %", 
-                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %" 
+                            {
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %",
+                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %"
                             }
                           ]}
                         />
                       </>
                     ) : (
                       <>
-                        <MetricRow label="Fully handled by bot %" fieldName="Fully handled by bot %" clickHandler={handleBotHandledClick} isClickable={true} icon={SnowflakeIcon} />
-                        <MetricRow label="Identical messages repeated % (Avg)" fieldName="Identical messages repeated % (Avg)" clickHandler={handleRepetitionClick} isClickable={true} icon={SnowflakeIcon} />
-                                                 <MetricRow 
+                        <MetricRow label="Fully handled by bot %" fieldName="Fully handled by bot %" clickHandler={handleBotHandledClick} isClickable={true} icon={SnowflakeIcon} loading={loadingStates.botHandled} />
+                        <MetricRow label="Identical messages repeated % (Avg)" fieldName="Identical messages repeated % (Avg)" clickHandler={handleRepetitionClick} isClickable={true} icon={SnowflakeIcon} loading={loadingStates.repetition} />
+                                                 <MetricRow
                            label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
                            fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
-                           clickHandler={handle80SimilarityClick} 
-                           isClickable={true} 
-                           icon={SnowflakeIcon} 
+                           clickHandler={handle80SimilarityClick}
+                           isClickable={true}
+                           icon={SnowflakeIcon}
+                           loading={loadingStates.similarity}
                          />
                       </>
                     )}
@@ -1239,11 +1374,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
 
                     {/* Unresponsive Chats field - only for specific departments */}
                     {(['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina', 'MV Resolvers'].includes(selectedDepartment)) && (
-                      <MetricRow 
-                        label="Unresponsive Chats (%)" 
+                      <MetricRow
+                        label="Unresponsive Chats (%)"
                         fieldName="Unresponsive chats"
                         clickHandler={handleUnresponsiveChatsClick}
                         isClickable={true}
+                        loading={loadingStates.unresponsive}
                       />
                     )}
 
@@ -1469,11 +1605,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                   </Box>
                   
                   <Stack spacing={1}>
-                    <MetricRow 
-                      label="Chats shadowed %" 
+                    <MetricRow
+                      label="Chats shadowed %"
                       fieldName="Chats shadowed %"
                       clickHandler={handleChatsShadowedClick}
                       isClickable={!['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)}
+                      loading={loadingStates.shadowing}
                     />
                     <MetricRow label="Reported issue (#)" fieldName="Reported issue (#)" />
                     <MetricRow label="Issues pending to be solved (#)" fieldName="Issues pending to be solved (#)" />
