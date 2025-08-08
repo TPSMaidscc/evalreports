@@ -134,26 +134,381 @@ const ConversionFunnelSection = ({ selectedDepartment, selectedDate, dashboardDa
     </TableContainer>
   );
 
+  // Complex Sales Funnel Table for CC Sales and MV Sales
+  const SalesFunnelTable = ({ funnelData }) => {
+    if (!funnelData || funnelData.type !== 'salesFunnel') {
+      return null;
+    }
+
+    const { department, headerRow1, headerRow2, dataRows } = funnelData;
+    
+    // Extract date headers from headerRow2 - they should be the first 7 elements after the first 2 columns
+    const dateHeaders = headerRow2.slice(2, 9) || ['Jul 23', 'Jul 22', 'Jul 21', 'Jul 20', 'Jul 19', 'Jul 18', 'Jul 17'];
+    
+    console.log('Extracted date headers:', dateHeaders);
+    console.log('Header row 2 full:', headerRow2);
+    
+    // Process hierarchical data structure for merging main categories
+    const processHierarchicalData = (rows) => {
+      const processedRows = [];
+      let i = 0;
+      
+      while (i < rows.length) {
+        const currentRow = rows[i];
+        const mainCategory = currentRow[0];
+        const subCategory = currentRow[1];
+        
+        // If first column has content, this is a main category
+        if (mainCategory && mainCategory.toString().trim() !== '') {
+          // Count how many subcategories follow this main category
+          let subCategoryCount = 0;
+          let j = i + 1;
+          
+          // Look ahead to count subcategories (rows where first column is empty but second has content)
+          while (j < rows.length) {
+            const nextRow = rows[j];
+            const nextMain = nextRow[0];
+            const nextSub = nextRow[1];
+            
+            if ((!nextMain || nextMain.toString().trim() === '') && nextSub && nextSub.toString().trim() !== '') {
+              subCategoryCount++;
+              j++;
+            } else {
+              break;
+            }
+          }
+          
+          console.log(`Main category "${mainCategory}" has ${subCategoryCount} subcategories`);
+          
+          // Add the main category row with rowSpan
+          processedRows.push({
+            data: currentRow,
+            isMainCategory: true,
+            rowSpan: Math.max(1, subCategoryCount + 1), // +1 for the main category itself
+            subCategoryCount: subCategoryCount
+          });
+          
+          // Add the subcategory rows
+          for (let k = 1; k <= subCategoryCount; k++) {
+            const subRow = rows[i + k];
+            if (subRow) {
+              console.log(`Adding subcategory row: "${subRow[1]}" under "${mainCategory}"`);
+              processedRows.push({
+                data: subRow,
+                isSubCategory: true,
+                hideMainCategory: true // Don't render the first column for subcategories
+              });
+            }
+          }
+          
+          i += subCategoryCount + 1;
+        } else {
+          // This is a standalone row or we couldn't determine the structure
+          processedRows.push({
+            data: currentRow,
+            isMainCategory: true,
+            rowSpan: 1,
+            subCategoryCount: 0
+          });
+          i++;
+        }
+      }
+      
+      console.log('Processed hierarchical data:', processedRows);
+      return processedRows;
+    };
+    
+    const processedDataRows = processHierarchicalData(dataRows);
+    
+    // Debug the final structure
+    console.log('=== FINAL PROCESSED DATA STRUCTURE ===');
+    processedDataRows.forEach((row, index) => {
+      console.log(`Row ${index}:`, {
+        type: row.isMainCategory ? 'MAIN' : 'SUB',
+        rowSpan: row.rowSpan || 'N/A',
+        firstCol: row.data[0],
+        secondCol: row.data[1],
+        isMainCategory: row.isMainCategory,
+        isSubCategory: row.isSubCategory,
+        dataLength: row.data.length
+      });
+    });
+    console.log('=== END STRUCTURE DEBUG ===');
+
+    return (
+      <Box>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            mb: 3, 
+            fontWeight: 600, 
+            color: 'text.primary',
+            textAlign: 'center',
+            fontSize: '1.1rem'
+          }}
+        >
+          {department} Summary Table
+        </Typography>
+        
+        <TableContainer component={Paper} sx={{ border: `1px solid ${alpha(theme.palette.divider, 0.2)}`, overflowX: 'auto' }}>
+          <Table size="small" sx={{ minWidth: 1200 }}>
+            {/* Complex Multi-Row Headers */}
+            <TableHead>
+              {/* First Header Row */}
+              <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.1) }}>
+                <TableCell 
+                  rowSpan={2}
+                  colSpan={2}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                    border: `1px solid ${theme.palette.divider}`,
+                    minWidth: 350,
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Applicant Stage
+                </TableCell>
+                
+                {/* Entered the Knowledge Base Last 7 days - 7 columns */}
+                <TableCell 
+                  colSpan={7}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: alpha(theme.palette.secondary.main, 0.1),
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Entered the Knowledge Base Last 7 days
+                </TableCell>
+                
+                {/* Average columns - each merged with row below (rowSpan 2) */}
+                <TableCell 
+                  rowSpan={2}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                    border: `1px solid ${theme.palette.divider}`,
+                    minWidth: 100,
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  Avg. last 7 days
+                </TableCell>
+                <TableCell 
+                  rowSpan={2}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                    border: `1px solid ${theme.palette.divider}`,
+                    minWidth: 100,
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  Avg. previous 7 days
+                </TableCell>
+                <TableCell 
+                  rowSpan={2}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                    border: `1px solid ${theme.palette.divider}`,
+                    minWidth: 100,
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  Avg. previous previous 7 days
+                </TableCell>
+                <TableCell 
+                  rowSpan={2}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                    border: `1px solid ${theme.palette.divider}`,
+                    minWidth: 100,
+                    fontSize: '0.75rem'
+                  }}
+                >
+                  Avg. last 30 days
+                </TableCell>
+                
+                {/* Funnel Performance - merged and centered over 3 columns */}
+                <TableCell 
+                  colSpan={3}
+                  sx={{ 
+                    fontWeight: 700, 
+                    textAlign: 'center',
+                    border: `1px solid ${theme.palette.divider}`,
+                    backgroundColor: alpha(theme.palette.warning.main, 0.1),
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  Funnel Performance
+                </TableCell>
+              </TableRow>
+              
+              {/* Second Header Row */}
+              <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.05) }}>
+                {/* Daily columns - use actual headers from sheet */}
+                {dateHeaders.map((day, index) => (
+                  <TableCell 
+                    key={index}
+                    sx={{ 
+                      fontWeight: 600, 
+                      textAlign: 'center',
+                      border: `1px solid ${theme.palette.divider}`,
+                      fontSize: '0.75rem',
+                      minWidth: 60
+                    }}
+                  >
+                    {day || `Day ${index + 1}`}
+                  </TableCell>
+                ))}
+                
+                {/* Funnel Performance sub-headers - these go under "Funnel Performance" */}
+                <TableCell 
+                  sx={{ 
+                    fontWeight: 600, 
+                    textAlign: 'center',
+                    border: `1px solid ${theme.palette.divider}`,
+                    fontSize: '0.75rem',
+                    minWidth: 80
+                  }}
+                >
+                  7 day Date range
+                </TableCell>
+                <TableCell 
+                  sx={{ 
+                    fontWeight: 600, 
+                    textAlign: 'center',
+                    border: `1px solid ${theme.palette.divider}`,
+                    fontSize: '0.75rem',
+                    minWidth: 80
+                  }}
+                >
+                  Funnel Threshold
+                </TableCell>
+                <TableCell 
+                  sx={{ 
+                    fontWeight: 600, 
+                    textAlign: 'center',
+                    border: `1px solid ${theme.palette.divider}`,
+                    fontSize: '0.75rem',
+                    minWidth: 80
+                  }}
+                >
+                  Max. Conv. Window
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            
+            {/* Data Rows */}
+            <TableBody>
+              {processedDataRows.map((row, index) => (
+                <TableRow 
+                  key={index}
+                  sx={{ 
+                    '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) },
+                    '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.04) }
+                  }}
+                >
+                  {/* Render cells based on whether this is a main category or subcategory */}
+                  {row.isMainCategory && (
+                    /* Main category - render first column with rowSpan */
+                    <TableCell 
+                      rowSpan={row.rowSpan}
+                      sx={{ 
+                        border: `1px solid ${theme.palette.divider}`,
+                        fontSize: '0.75rem',
+                        py: 1,
+                        px: 1.5,
+                        fontWeight: 600,
+                        verticalAlign: 'middle',
+                        textAlign: 'center',
+                        backgroundColor: alpha(theme.palette.primary.main, 0.05)
+                      }}
+                    >
+                      {row.data[0] || '-'}
+                    </TableCell>
+                  )}
+                  
+                  {/* Second column and beyond */}
+                  {row.data.map((cell, cellIndex) => {
+                    // Skip first column for subcategories (it's merged with main category)
+                    if (cellIndex === 0 && row.isSubCategory) {
+                      return null;
+                    }
+                    
+                    // Skip first column for main categories (already rendered above)
+                    if (cellIndex === 0 && row.isMainCategory) {
+                      return null;
+                    }
+                    
+                    return (
+                      <TableCell 
+                        key={cellIndex}
+                        sx={{ 
+                          border: `1px solid ${theme.palette.divider}`,
+                          fontSize: '0.75rem',
+                          py: 1,
+                          px: 1.5,
+                          ...(cellIndex === 1 ? { 
+                            paddingLeft: row.isSubCategory ? 3 : 1.5, 
+                            fontStyle: row.isSubCategory ? 'italic' : 'normal',
+                            color: row.isSubCategory ? 'text.secondary' : 'text.primary',
+                            fontWeight: row.isSubCategory ? 400 : 500
+                          } : {})
+                        }}
+                      >
+                        {cell || '-'}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
+    );
+  };
+
+  // Get the funnel data
   const renderFunnelContent = () => {
-    if (selectedDepartment === 'CC Sales') {
-      return (
-        <Box sx={{ 
-          textAlign: 'center', 
-          py: 8, 
-          color: 'text.secondary',
-          background: alpha(theme.palette.warning.main, 0.05),
-          borderRadius: 2,
-          border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
-        }}>
-          <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-            Pending business team
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Needs Till 24 July
-          </Typography>
-        </Box>
-      );
+    // Handle CC Sales and MV Sales with complex table structure
+    if (selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') {
+      const funnelData = dashboardData.funnel;
+      console.log(`${selectedDepartment} funnel data:`, funnelData);
+      
+      if (funnelData && funnelData.type === 'salesFunnel') {
+        return <SalesFunnelTable funnelData={funnelData} />;
+      } else {
+        return (
+          <Box sx={{ 
+            textAlign: 'center', 
+            py: 8, 
+            color: 'text.secondary',
+            background: alpha(theme.palette.warning.main, 0.05),
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
+          }}>
+            <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>📊</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
+              No funnel data available
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Check the sheet for date {selectedDate}
+            </Typography>
+          </Box>
+        );
+      }
     } 
     
     else if (selectedDepartment === 'AT Filipina') {
@@ -230,27 +585,6 @@ const ConversionFunnelSection = ({ selectedDepartment, selectedDate, dashboardDa
         return <DesktopTable data={[]} title="Conversion Report - AT Filipina" headers={headers} />;
       }
     } 
-    
-    else if (selectedDepartment === 'MV Sales') {
-      return (
-        <Box sx={{ 
-          textAlign: 'center', 
-          py: 8, 
-          color: 'text.secondary',
-          background: alpha(theme.palette.warning.main, 0.05),
-          borderRadius: 2,
-          border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
-        }}>
-          <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-            Pending business team
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Needs Till 24 July
-          </Typography>
-        </Box>
-      );
-    }
     
     else if (selectedDepartment === 'MaidsAT African' || selectedDepartment === 'MaidsAT Ethiopian') {
       return (

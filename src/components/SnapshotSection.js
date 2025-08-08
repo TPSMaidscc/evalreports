@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Card,
@@ -24,6 +24,9 @@ import {
   TableHead,
   TableRow,
   styled,
+  FormControl,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Info as InfoIcon,
@@ -46,10 +49,11 @@ import {
   HomeWork as HomeWorkIcon,
   CleaningServices as CleaningServicesIcon,
   Star as StarIcon,
+  AcUnit as SnowflakeIcon,
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
-import { codeBasedEvalTooltips } from '../utils/constants';
-import { navigateToRawDataSheet, navigateToBotHandledSheet, navigateToRepetitionSheet, navigateToUnresponsiveChatsSheet } from '../services/googleSheets';
+import { codeBasedEvalTooltips, AT_FILIPINA_SUB_DEPARTMENTS } from '../utils/constants';
+import { navigateToRawDataSheet, navigateToBotHandledSheet, navigateToRepetitionSheet, navigateToUnresponsiveChatsSheet, navigateToSentimentSheet, navigateTo80SimilaritySheet, navigateToTransferInterventionRawSheet, navigateToShadowedSheet, navigateToShadowingRawDataSheet, navigateToFTRSheet, navigateToFalsePromisesSheet, navigateToPolicyEscalationSheet, navigateToClarityScoreSheet, navigateToClientsSuspectingAISheet, navigateToClientsQuestioningLegaltiesSheet, navigateToCallRequestSheet, navigateToThreateningCaseIdentifierSheet, navigateToMedicalMisPrescriptionsSheet, navigateToUnnecessaryClinicRecommendationsSheet, navigateToDoctorsPolicyEscalationSheet, navigateToDoctorsClarityScoreSheet, navigateToDoctorsClientsSuspectingAISheet } from '../services/googleSheets';
 import SnapshotValueRenderer from './SnapshotValueRenderer';
 import { getCurrentDate } from '../utils/helpers';
 
@@ -180,12 +184,112 @@ const FormulaDisplay = ({ formula }) => {
     >
       {formatFormula(formula)}
     </Box>
+      );
+  };
+
+// Component for displaying Shadowing Breakdown table
+const ShadowingBreakdownTable = ({ shadowingData, selectedDepartment }) => {
+  const theme = useTheme();
+
+  // Skip rendering for departments that don't have shadowing
+  if (['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)) {
+    return null;
+  }
+
+  // Parse the shadowing breakdown data
+  const parseShadowingData = (data) => {
+    if (!data || typeof data !== 'string') {
+      return [];
+    }
+
+    // Split by newlines and parse each line
+    return data.split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .map(line => {
+        const [name, count] = line.split(':').map(part => part.trim());
+        return { name, count: parseInt(count) || 0 };
+      })
+      .filter(item => item.name && !isNaN(item.count))
+      .sort((a, b) => b.count - a.count); // Sort by count descending
+  };
+
+  const shadowingItems = parseShadowingData(shadowingData);
+
+  if (shadowingItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Divider sx={{ my: 2 }} />
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+          <PersonIcon sx={{ color: theme.palette.success.main, mr: 1, fontSize: 20 }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            Shadowing Breakdown
+          </Typography>
+          <Tooltip 
+            title={codeBasedEvalTooltips['Shadowing Breakdown']}
+            placement="top"
+            arrow
+            sx={{ ml: 1 }}
+          >
+            <IconButton 
+              size="small" 
+              sx={{ 
+                p: 0,
+                width: 16,
+                height: 16,
+                ml: 0.5,
+              }}
+            >
+              <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', border: 'none', pb: 1 }}>Agent</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.75rem', border: 'none', pb: 1 }}>Chats</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {shadowingItems.map((item, index) => (
+              <TableRow 
+                key={index}
+                sx={{ 
+                  '&:hover': { backgroundColor: alpha(theme.palette.success.main, 0.04) },
+                  '&:last-child td, &:last-child th': { border: 0 }
+                }}
+              >
+                <TableCell sx={{ fontSize: '0.75rem', py: 0.5, border: 'none' }}>
+                  {item.name}
+                </TableCell>
+                <TableCell align="right" sx={{ fontSize: '0.75rem', py: 0.5, fontWeight: 500, border: 'none' }}>
+                  {item.count}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Box>
+    </Box>
   );
 };
 
-const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) => {
+const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, selectedATFilipinaSubDept = 'All', onATFilipinaSubDeptChange }) => {
   const theme = useTheme();
   const [definitionsExpanded, setDefinitionsExpanded] = React.useState(false);
+  
+  // State for expandable metrics
+  const [expandedMetrics, setExpandedMetrics] = useState({
+    inChatPoke: false,
+    fullyHandledBot: false,
+    verbatimRepeated: false,
+    similarityEighty: false
+  });
 
   const handleDefinitionsChange = (event, isExpanded) => {
     setDefinitionsExpanded(isExpanded);
@@ -210,11 +314,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
 
   const DepartmentIcon = getDepartmentIcon(selectedDepartment);
 
-  // Handle click on Total Number of Chats label to navigate to raw data
+  // Handle click on Chats supposed to be handled by bot (#) label to navigate to raw data
   const handleTotalChatsClick = async () => {
-    console.log('Total Chats clicked for:', selectedDepartment, selectedDate);
+    console.log('Total Chats clicked for:', selectedDepartment, selectedDate, selectedATFilipinaSubDept);
     try {
-      await navigateToRawDataSheet(selectedDepartment, selectedDate);
+      await navigateToRawDataSheet(selectedDepartment, selectedDate, selectedATFilipinaSubDept);
     } catch (error) {
       console.error('Error navigating to raw data sheet:', error);
       alert('Error opening raw data sheet. Please try again.');
@@ -232,7 +336,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
     }
   };
 
-  // Handle click on Verbatim messages repeated % (Avg) label to navigate to repetition sheet
+  // Handle click on Identical messages repeated % (Avg) label to navigate to repetition sheet
   const handleRepetitionClick = async () => {
     console.log('Repetition clicked for:', selectedDepartment, selectedDate);
     try {
@@ -254,6 +358,179 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
     }
   };
 
+  // Handle click on Sentiment analysis (/5) label to navigate to sentiment analysis sheet
+  const handleSentimentClick = async () => {
+    console.log('Sentiment analysis clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToSentimentSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to sentiment analysis sheet:', error);
+      alert('Error opening sentiment analysis sheet. Please try again.');
+    }
+  };
+
+  // Handle click on 80% Message similarity % label to navigate to 80% similarity sheet
+  const handle80SimilarityClick = async () => {
+    console.log('80% Message similarity clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateTo80SimilaritySheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to 80% similarity sheet:', error);
+      alert('Error opening 80% similarity sheet. Please try again.');
+    }
+  };
+
+
+
+  // Handle click on Chats shadowed % label to navigate to raw data sheet with shadowing tab
+  const handleChatsShadowedClick = async () => {
+    console.log('Chats shadowed % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToShadowingRawDataSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to shadowing raw data sheet:', error);
+      alert('Error opening shadowing raw data sheet. Please try again.');
+    }
+  };
+
+  // Handle click on FTR (First Time Resolution) label to navigate to FTR sheet
+  const handleFTRClick = async () => {
+    console.log('FTR clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToFTRSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to FTR sheet:', error);
+      alert('Error opening FTR sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Medical mis-prescriptions label to navigate to medical mis-prescriptions sheet
+  const handleMedicalMisPrescriptionsClick = async () => {
+    console.log('Medical mis-prescriptions clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToMedicalMisPrescriptionsSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Medical mis-prescriptions sheet:', error);
+      alert('Error opening Medical mis-prescriptions sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Unnecessary clinic recommendations label to navigate to unnecessary clinic recommendations sheet
+  const handleUnnecessaryClinicRecommendationsClick = async () => {
+    console.log('Unnecessary clinic recommendations clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToUnnecessaryClinicRecommendationsSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Unnecessary clinic recommendations sheet:', error);
+      alert('Error opening Unnecessary clinic recommendations sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Policy to cause escalation % for Doctors
+  const handleDoctorsPolicyEscalationClick = async () => {
+    console.log('Doctors Policy to cause escalation % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToDoctorsPolicyEscalationSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Doctors policy escalation sheet:', error);
+      alert('Error opening Doctors policy escalation sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Clarity Score % for Doctors
+  const handleDoctorsClarityScoreClick = async () => {
+    console.log('Doctors Clarity Score % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToDoctorsClarityScoreSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Doctors clarity score sheet:', error);
+      alert('Error opening Doctors clarity score sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Clients Suspecting AI % for Doctors
+  const handleDoctorsClientsSuspectingAIClick = async () => {
+    console.log('Doctors Clients Suspecting AI % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToDoctorsClientsSuspectingAISheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Doctors clients suspecting AI sheet:', error);
+      alert('Error opening Doctors clients suspecting AI sheet. Please try again.');
+    }
+  };
+
+  // Handle click on False Promises label to navigate to False Promises sheet
+  const handleFalsePromisesClick = async () => {
+    console.log('False Promises clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToFalsePromisesSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to False Promises sheet:', error);
+      alert('Error opening False Promises sheet. Please try again.');
+    }
+  };
+
+  // Handle click handlers for MV Resolvers specific metrics
+  const handlePolicyEscalationClick = async () => {
+    console.log('Policy to cause escalation % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToPolicyEscalationSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Policy to cause escalation sheet:', error);
+      alert('Error opening Policy to cause escalation sheet. Please try again.');
+    }
+  };
+
+  const handleClarityScoreClick = async () => {
+    console.log('Clarity Score % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToClarityScoreSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Clarity Score sheet:', error);
+      alert('Error opening Clarity Score sheet. Please try again.');
+    }
+  };
+
+  const handleClientsSuspectingAIClick = async () => {
+    console.log('Clients Suspecting AI % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToClientsSuspectingAISheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Clients Suspecting AI sheet:', error);
+      alert('Error opening Clients Suspecting AI sheet. Please try again.');
+    }
+  };
+
+  const handleClientsQuestioningLegaltiesClick = async () => {
+    console.log('Clients Questioning Legalties % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToClientsQuestioningLegaltiesSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Clients Questioning Legalties sheet:', error);
+      alert('Error opening Clients Questioning Legalties sheet. Please try again.');
+    }
+  };
+
+  const handleCallRequestClick = async () => {
+    console.log('Call Request % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToCallRequestSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Call Request sheet:', error);
+      alert('Error opening Call Request sheet. Please try again.');
+    }
+  };
+
+  const handleThreateningCaseIdentifierClick = async () => {
+    console.log('Threatening Case Identifier % clicked for:', selectedDepartment, selectedDate);
+    try {
+      await navigateToThreateningCaseIdentifierSheet(selectedDepartment, selectedDate);
+    } catch (error) {
+      console.error('Error navigating to Threatening Case Identifier sheet:', error);
+      alert('Error opening Threatening Case Identifier sheet. Please try again.');
+    }
+  };
+
 
   // Helper component for metric rows with tooltips
   const MetricRow = ({ 
@@ -261,7 +538,9 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
     fieldName, 
     clickHandler = null, 
     showTooltip = true,
-    isClickable = false 
+    isClickable = false,
+    icon = null,
+    isIndented = false
   }) => {
     const hasTooltip = showTooltip && codeBasedEvalTooltips[label];
     
@@ -306,9 +585,15 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
           alignItems: 'flex-start',
           minHeight: 32,
           py: 0.5,
+          pl: isIndented ? 3 : 0,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, mr: 2 }}>
+          {icon && (
+            <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+              {React.createElement(icon, { sx: { fontSize: 16, color: 'primary.main' } })}
+            </Box>
+          )}
           <LabelComponent>
             {label}
           </LabelComponent>
@@ -334,7 +619,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
           )}
         </Box>
         <Box sx={{ textAlign: 'right', maxWidth: '60%' }}>
-          <SnapshotValueRenderer fieldName={fieldName} dashboardData={dashboardData} />
+          <SnapshotValueRenderer fieldName={fieldName} dashboardData={dashboardData} selectedDepartment={selectedDepartment} />
         </Box>
       </Box>
     );
@@ -372,8 +657,154 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
           )}
         </Box>
         <Box sx={{ pl: 2 }}>
-          <SnapshotValueRenderer fieldName={fieldName} dashboardData={dashboardData} />
+          <SnapshotValueRenderer fieldName={fieldName} dashboardData={dashboardData} selectedDepartment={selectedDepartment} />
         </Box>
+      </Box>
+    );
+  };
+
+  // Expandable MetricRow component for metrics with sub-metrics
+  const ExpandableMetricRow = ({ 
+    label, 
+    fieldName, 
+    metricKey,
+    subMetrics = [],
+    clickHandler = null, 
+    showTooltip = true,
+    isClickable = false,
+    icon = null
+  }) => {
+    const hasTooltip = showTooltip && codeBasedEvalTooltips[label];
+    const isExpanded = expandedMetrics[metricKey];
+    
+    const toggleExpanded = () => {
+      setExpandedMetrics(prev => ({
+        ...prev,
+        [metricKey]: !prev[metricKey]
+      }));
+    };
+
+    const LabelComponent = ({ children }) => {
+      if (isClickable && clickHandler) {
+        return (
+          <Button
+            onClick={clickHandler}
+            variant="text"
+            sx={{
+              justifyContent: 'flex-start',
+              textAlign: 'left',
+              textTransform: 'none',
+              p: 0,
+              minWidth: 'auto',
+              color: theme.palette.primary.main,
+              fontWeight: 400,
+              fontSize: '0.875rem',
+              '&:hover': {
+                backgroundColor: 'transparent',
+                textDecoration: 'underline',
+              },
+            }}
+            title={`Click to open ${label.toLowerCase()} data sheet`}
+          >
+            {children}
+          </Button>
+        );
+      }
+      return (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'left' }}>
+          {children}
+        </Typography>
+      );
+    };
+
+    return (
+      <Box>
+        {/* Main metric row */}
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'flex-start',
+            minHeight: 32,
+            py: 0.5,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, mr: 2 }}>
+            {icon && (
+              <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                {React.createElement(icon, { sx: { fontSize: 16, color: 'primary.main' } })}
+              </Box>
+            )}
+            <LabelComponent>
+              {label}
+            </LabelComponent>
+            {hasTooltip && (
+              <Tooltip 
+                title={codeBasedEvalTooltips[label]}
+                placement="top"
+                arrow
+                sx={{ ml: 1 }}
+              >
+                <IconButton 
+                  size="small" 
+                  sx={{ 
+                    p: 0,
+                    width: 16,
+                    height: 16,
+                    ml: 0.5,
+                  }}
+                >
+                  <InfoIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {subMetrics.length > 0 && (
+              <IconButton
+                onClick={toggleExpanded}
+                size="small"
+                sx={{
+                  ml: 0.5,
+                  p: 0,
+                  width: 20,
+                  height: 20,
+                  transition: 'transform 0.2s ease-in-out',
+                  transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                }}
+              >
+                <ExpandMoreIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              </IconButton>
+            )}
+          </Box>
+          <Box sx={{ textAlign: 'right', maxWidth: '60%' }}>
+            <SnapshotValueRenderer fieldName={fieldName} dashboardData={dashboardData} selectedDepartment={selectedDepartment} />
+          </Box>
+        </Box>
+
+        {/* Sub-metrics */}
+        <AnimatePresence>
+          {isExpanded && subMetrics.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: "easeInOut" }}
+              style={{ overflow: 'hidden' }}
+            >
+              <Box sx={{ pl: 2, mt: 1 }}>
+                {subMetrics.map((subMetric, index) => (
+                  <MetricRow
+                    key={index}
+                    label={subMetric.label}
+                    fieldName={subMetric.fieldName}
+                    clickHandler={subMetric.clickHandler}
+                    isClickable={subMetric.isClickable}
+                    isIndented={true}
+                  />
+                ))}
+              </Box>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Box>
     );
   };
@@ -410,12 +841,53 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
               {selectedDepartment}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', mb: selectedDepartment === 'AT Filipina' ? 2 : 0 }}>
             <DateIcon sx={{ color: 'text.secondary', mr: 1 }} />
             <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 500 }}>
               {getCurrentDate(selectedDate)}
             </Typography>
           </Box>
+          
+          {/* AT Filipina Sub-Department Selector */}
+          {selectedDepartment === 'AT Filipina' && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <Select
+                  value={selectedATFilipinaSubDept}
+                  onChange={(e) => onATFilipinaSubDeptChange && onATFilipinaSubDeptChange(e.target.value)}
+                  sx={{
+                    '.MuiOutlinedInput-notchedOutline': { 
+                      borderColor: alpha(theme.palette.primary.main, 0.3)
+                    },
+                    '.MuiSelect-select': {
+                      display: 'flex',
+                      alignItems: 'center',
+                      fontWeight: 500,
+                      fontSize: '0.875rem',
+                      py: 1,
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                      borderColor: theme.palette.primary.main,
+                    },
+                  }}
+                >
+                  {Object.entries(AT_FILIPINA_SUB_DEPARTMENTS).map(([key, config]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CleaningServicesIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        <Typography variant="body2" fontWeight={500}>
+                          {config.label}
+                        </Typography>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          )}
         </Paper>
       </motion.div>
 
@@ -651,16 +1123,19 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                         <MetricRow 
                           label="META Quality for 97145810691"
                           fieldName="META Quality for 97145810691"
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="META Quality for 97145810641"
                           fieldName="META Quality for 97145810641"
+                          icon={SnowflakeIcon}
                         />
                 </>
               ) : (
                       <MetricRow 
                         label="META Quality"
                         fieldName="META Quality"
+                        icon={SnowflakeIcon}
                       />
               )}
               
@@ -671,28 +1146,99 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                     <MetricRow label="N8N/ERP" fieldName="N8N/ERP" />
                     <MetricRow label="Cost ($)" fieldName="Cost ($)" />
                     <MetricRow 
-                      label="Total Number of Chats (#)" 
-                      fieldName="Total Number of Chats (#)"
+                      label="Chats supposed to be handled by bot (#)" 
+                      fieldName="Chats supposed to be handled by bot (#)"
                       clickHandler={handleTotalChatsClick}
                       isClickable={true}
+                      icon={SnowflakeIcon}
                     />
-                    <MetricRow 
-                      label="Fully handled by bot %" 
-                      fieldName="Fully handled by bot %"
-                      clickHandler={handleBotHandledClick}
-                      isClickable={true}
-                    />
-                    <MetricRow 
-                      label="Verbatim messages repeated % (Avg)" 
-                      fieldName="Verbatim messages repeated % (Avg)"
-                      clickHandler={handleRepetitionClick}
-                      isClickable={true}
-                    />
-                    <MetricRow label="Avg Delay - Initial msg (sec)" fieldName="Avg Delay - Initial msg (sec)" />
-                    <MetricRow label="Avg Delay - non-initial msg (sec)" fieldName="Avg Delay - non-initial msg (sec)" />
+                    {/* Expandable metrics for CC Sales and MV Sales only */}
+                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') ? (
+                      <>
+                        <ExpandableMetricRow 
+                          label="Fully handled by bot %" 
+                          fieldName="Fully handled by bot %"
+                          metricKey="fullyHandledBot"
+                          clickHandler={handleBotHandledClick}
+                          isClickable={true}
+                          icon={SnowflakeIcon}
+                          subMetrics={[
+                            { label: "Chats with at least 1 agent message", fieldName: "Chats with at least 1 agent message" },
+                            { label: "Chats with at least 2 agent message", fieldName: "Chats with at least 2 agent message" },
+                            { label: "Chats with at least 3 agent message", fieldName: "Chats with at least 3 agent message" }
+                          ]}
+                        />
+                        <ExpandableMetricRow 
+                          label="Identical messages repeated % (Avg)" 
+                          fieldName="Identical messages repeated % (Avg)"
+                          metricKey="verbatimRepeated"
+                          clickHandler={handleRepetitionClick}
+                          isClickable={true}
+                          icon={SnowflakeIcon}
+                          subMetrics={[
+                            { label: "Repetition static messages %", fieldName: "Repetition static messages %" },
+                            { label: "Repetition dynamic messages %", fieldName: "Repetition dynamic messages %" }
+                          ]}
+                        />
+                        <ExpandableMetricRow 
+                          label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                          fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                          metricKey="similarityEighty"
+                          clickHandler={handle80SimilarityClick}
+                          isClickable={true}
+                          icon={SnowflakeIcon}
+                          subMetrics={[
+                            { 
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %", 
+                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %" 
+                            },
+                            { 
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %", 
+                              fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %" 
+                            }
+                          ]}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <MetricRow label="Fully handled by bot %" fieldName="Fully handled by bot %" clickHandler={handleBotHandledClick} isClickable={true} icon={SnowflakeIcon} />
+                        <MetricRow label="Identical messages repeated % (Avg)" fieldName="Identical messages repeated % (Avg)" clickHandler={handleRepetitionClick} isClickable={true} icon={SnowflakeIcon} />
+                                                 <MetricRow 
+                           label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                           fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                           clickHandler={handle80SimilarityClick} 
+                           isClickable={true} 
+                           icon={SnowflakeIcon} 
+                         />
+                      </>
+                    )}
+                    
+                    {/* Minimum Reply Time for all departments */}
+                    <MetricRow label="Minimum Reply Time (sec)" fieldName="Minimum Reply Time (sec)" icon={SnowflakeIcon} />
+                    
+                    <MetricRow label="Avg Delay - Initial msg (sec)" fieldName="Avg Delay - Initial msg (sec)" icon={SnowflakeIcon} />
+                    <MetricRow label="Avg Delay - non-initial msg (sec)" fieldName="Avg Delay - non-initial msg (sec)" icon={SnowflakeIcon} />
+
+                    {/* New metrics for CC Sales and MV Sales only */}
+                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') && (
+                      <>
+                        <MetricRow label="Call Requests Metric %" fieldName="Call Requests Metric %" icon={SnowflakeIcon} />
+                        <ExpandableMetricRow 
+                          label="In-Chat Poke Re-engagement (%)" 
+                          fieldName="In-Chat Poke Re-engagement (%)"
+                          metricKey="inChatPoke"
+                          icon={SnowflakeIcon}
+                          subMetrics={[
+                            { label: "In-Chat Bot Poke Re-engagement", fieldName: "In-Chat Bot Poke Re-engagement" },
+                            { label: "In-Chat Bot M20 Poke Re-engagement", fieldName: "In-Chat Bot M20 Poke Re-engagement" },
+                            { label: "In-Chat Agent Poke Re-engagement", fieldName: "In-Chat Agent Poke Re-engagement" }
+                          ]}
+                        />
+                      </>
+                    )}
 
                     {/* Unresponsive Chats field - only for specific departments */}
-                    {(['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)) && (
+                    {(['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina', 'MV Resolvers'].includes(selectedDepartment)) && (
                       <MetricRow 
                         label="Unresponsive Chats (%)" 
                         fieldName="Unresponsive chats"
@@ -705,7 +1251,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                     {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') && (
                       <>
                         <Divider sx={{ my: 2 }} />
-                        <MetricRow label="7D cohort - 3DW" fieldName="7D cohort - 3DW" />
+                        <MetricRow label="7D cohort - 3DW" fieldName="7D cohort - 3DW" icon={SnowflakeIcon} />
                       </>
                     )}
                   </Stack>
@@ -745,19 +1291,74 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                   </Box>
                   
                   <Stack spacing={1}>
-                    <MetricRow label="Rule-breaking %" fieldName="Rule-breaking %" />
+                    {/* <MetricRow label="Rule-breaking %" fieldName="Rule-breaking %" /> */}
                     <MetricRow 
                       label="Sentiment analysis (/5)" 
                       fieldName="Sentiment analysis (/5)"
+                      clickHandler={handleSentimentClick}
+                      isClickable={true}
                     />
                     <MetricRow label="Transfers due to escalations %" fieldName="Transfers due to escalations %" />
                     <MetricRow label="Transfers due to known flows %" fieldName="Transfers due to known flows %" />
                     
+                    {/* MV Resolvers specific metrics */}
+                    {selectedDepartment === 'MV Resolvers' && (
+                      <>
+                        <MetricRow 
+                          label="% False Promises %" 
+                          fieldName="% False Promises %" 
+                          clickHandler={selectedDepartment === 'MV Resolvers' ? handleFalsePromisesClick : null}
+                          isClickable={selectedDepartment === 'MV Resolvers'}
+                        />
+
+                        
+                        {/* New MV Resolvers specific metrics */}
+                        <MetricRow 
+                          label="Policy to cause escalation %" 
+                          fieldName="Policy to cause escalation %" 
+                          clickHandler={handlePolicyEscalationClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Clarity Score %" 
+                          fieldName="Clarity Score %" 
+                          clickHandler={handleClarityScoreClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Clients Suspecting AI %" 
+                          fieldName="Clients Suspecting AI %" 
+                          clickHandler={handleClientsSuspectingAIClick}
+                          isClickable={true}
+                        />
+                                                <MetricRow 
+                          label="Clients Questioning Legalties %"
+                          fieldName="Clients Questioning Legalties %" 
+                          clickHandler={handleClientsQuestioningLegaltiesClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Call Request %" 
+                          fieldName="Call Request %" 
+                          clickHandler={handleCallRequestClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Threatening Case Identifier %" 
+                          fieldName="Threatening Case Identifier %" 
+                          clickHandler={handleThreateningCaseIdentifierClick}
+                          isClickable={true}
+                        />
+                      </>
+                    )}
+                    
                     {/* First Time resolution for specific departments */}
               {['CC Resolvers', 'MV Resolvers', 'Delighters'].includes(selectedDepartment) && (
                       <MetricRow 
-                        label="First Time resolution on actionable chats" 
-                        fieldName="First Time resolution on actionable chats" 
+                        label="First Time resolution on actionable chats %" 
+                        fieldName="FTR" 
+                        clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
+                        isClickable={selectedDepartment === 'MV Resolvers'}
                       />
               )}
               
@@ -766,11 +1367,41 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                       <>
                         <Divider sx={{ my: 2 }} />
                         <MetricRow 
-                          label="First time resolution on actionable chats" 
-                          fieldName="First Time resolution on actionable chats" 
+                          label="Policy to cause escalation %" 
+                          fieldName="Policy to cause escalation %"
+                          clickHandler={handleDoctorsPolicyEscalationClick}
+                          isClickable={true}
                         />
-                        <MetricRow label="Medical mis-prescriptions" fieldName="Medical mis-prescriptions" />
-                        <MetricRow label="Unnecessary clinic recommendations" fieldName="Unnecessary clinic recommendations" />
+                        <MetricRow 
+                          label="Clarity Score %" 
+                          fieldName="Clarity Score %"
+                          clickHandler={handleDoctorsClarityScoreClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Clients Suspecting AI %" 
+                          fieldName="Clients Suspecting AI %"
+                          clickHandler={handleDoctorsClientsSuspectingAIClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="First Time resolution on actionable chats %" 
+                          fieldName="FTR" 
+                          clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
+                          isClickable={selectedDepartment === 'MV Resolvers'}
+                        />
+                        <MetricRow 
+                          label="Medical mis-prescriptions" 
+                          fieldName="Medical mis-prescriptions"
+                          clickHandler={handleMedicalMisPrescriptionsClick}
+                          isClickable={true}
+                        />
+                        <MetricRow 
+                          label="Unnecessary clinic recommendations" 
+                          fieldName="Unnecessary clinic recommendations"
+                          clickHandler={handleUnnecessaryClinicRecommendationsClick}
+                          isClickable={true}
+                        />
                       </>
                     )}
                     
@@ -841,15 +1472,186 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData }) =>
                     <MetricRow 
                       label="Chats shadowed %" 
                       fieldName="Chats shadowed %"
+                      clickHandler={handleChatsShadowedClick}
+                      isClickable={!['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)}
                     />
                     <MetricRow label="Reported issue (#)" fieldName="Reported issue (#)" />
                     <MetricRow label="Issues pending to be solved (#)" fieldName="Issues pending to be solved (#)" />
+                    
+                    {/* Shadowing Breakdown Table */}
+                    <ShadowingBreakdownTable 
+                      shadowingData={dashboardData.snapshot['Shadowing breakdown']} 
+                      selectedDepartment={selectedDepartment}
+                    />
                   </Stack>
                 </CardContent>
               </Card>
             </motion.div>
           </Box>
         </Box>
+        
+        {/* Policy to Cause Escalation section - only for MV Resolvers */}
+        {selectedDepartment === 'MV Resolvers' && dashboardData.policyEscalation && dashboardData.policyEscalation.length > 0 && (
+          <Box sx={{ mt: 4 }}>
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+            >
+              <Card 
+                sx={{ 
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: { xs: 'none', md: 'translateY(-4px)' },
+                    boxShadow: { xs: theme.shadows[2], md: theme.shadows[8] },
+                  },
+                }}
+              >
+                <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                    <PolicyIcon sx={{ color: theme.palette.primary.main, mr: 1.5 }} />
+                    <Typography variant="h6" component="h4" sx={{ fontWeight: 600 }}>
+                      Policy to Cause Escalation
+                    </Typography>
+                  </Box>
+                  
+                  <TableContainer 
+                    component={Paper} 
+                    sx={{ 
+                      maxHeight: 500,
+                      border: `1px solid ${alpha(theme.palette.grey[300], 0.8)}`,
+                      borderRadius: 2,
+                      mb: 2
+                    }}
+                  >
+                    <Table stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell 
+                            sx={{ 
+                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              fontWeight: 700,
+                              color: theme.palette.primary.main,
+                              fontSize: '0.9rem',
+                              padding: '16px',
+                              minWidth: '50%'
+                            }}
+                          >
+                            📋 Policy Description
+                          </TableCell>
+                          <TableCell 
+                            align="center"
+                            sx={{ 
+                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              fontWeight: 700,
+                              color: theme.palette.primary.main,
+                              fontSize: '0.9rem',
+                              padding: '16px',
+                              minWidth: '100px'
+                            }}
+                          >
+                            📊 Count
+                          </TableCell>
+                          <TableCell 
+                            align="center"
+                            sx={{ 
+                              backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              fontWeight: 700,
+                              color: theme.palette.primary.main,
+                              fontSize: '0.9rem',
+                              padding: '16px',
+                              minWidth: '120px'
+                            }}
+                          >
+                            📈 Percentage
+                          </TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {dashboardData.policyEscalation.map((row, index) => (
+                          <TableRow 
+                            key={index}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                              },
+                              '&:nth-of-type(odd)': {
+                                backgroundColor: alpha(theme.palette.grey[50], 0.5),
+                              },
+                            }}
+                          >
+                            <TableCell sx={{ padding: '16px', fontSize: '0.9rem' }}>
+                              <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                                <Box sx={{ 
+                                  minWidth: 24, 
+                                  height: 24, 
+                                  borderRadius: '50%', 
+                                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  mt: 0.2,
+                                  flexShrink: 0
+                                }}>
+                                  <Typography variant="caption" sx={{ 
+                                    fontWeight: 700, 
+                                    color: theme.palette.primary.main,
+                                    fontSize: '0.7rem'
+                                  }}>
+                                    {index + 1}
+                                  </Typography>
+                                </Box>
+                                <Typography variant="body2" sx={{ 
+                                  fontSize: '0.9rem', 
+                                  lineHeight: 1.5,
+                                  color: theme.palette.text.primary
+                                }}>
+                                  {row.policy}
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell align="center" sx={{ padding: '16px' }}>
+                              <Typography variant="body2" sx={{ 
+                                fontWeight: 600,
+                                color: theme.palette.info.main,
+                                fontSize: '0.9rem'
+                              }}>
+                                {row.count}
+                              </Typography>
+                            </TableCell>
+                            <TableCell align="center" sx={{ padding: '16px' }}>
+                              <Typography variant="body2" sx={{ 
+                                fontWeight: 700,
+                                color: theme.palette.warning.main,
+                                fontSize: '0.9rem'
+                              }}>
+                                {row.percentage}
+                              </Typography>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  
+                  <Typography variant="caption" sx={{ 
+                    color: theme.palette.text.secondary,
+                    fontStyle: 'italic',
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    mt: 1
+                  }}>
+                    <Box component="span" sx={{ fontSize: '1rem' }}>💡</Box>
+                    Policies ranked by escalation frequency • Higher percentages indicate policies more likely to cause customer escalations
+                  </Typography>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Box>
+        )}
       </Box>
     </Box>
   );

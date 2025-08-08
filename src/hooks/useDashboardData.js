@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { fetchDashboardData } from '../services/googleSheets';
-import { getYesterdayDate } from '../utils/helpers';
+import { getYesterdayDate, mapDepartmentForDataFetch, getDepartmentsForDate } from '../utils/helpers';
 import { dashboardConfig } from '../utils/constants';
 
 export const useDashboardData = () => {
@@ -20,12 +20,15 @@ export const useDashboardData = () => {
       sentimentData: [],
       toolsData: [],
       policyData: [],
-      costData: []
+      costData: [],
+      botHandledData: []
     },
     ruleBreaking: {
       overallViolations: [],
       ruleBreakdown: []
-    }
+    },
+    transferIntervention: [],
+    policyEscalation: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -40,8 +43,15 @@ export const useDashboardData = () => {
       const departmentParam = urlParams.get('department');
       const dateParam = urlParams.get('date');
       
-      const finalDepartment = departmentParam || 'CC Sales';
+      let finalDepartment = departmentParam || 'CC Sales';
       const finalDate = dateParam || getYesterdayDate();
+      
+      // Validate department for the selected date
+      const validDepartments = getDepartmentsForDate(finalDate);
+      if (!validDepartments.includes(finalDepartment)) {
+        // If department is invalid, use default fallback
+        finalDepartment = 'CC Sales'; // Default fallback
+      }
       
       console.log(`INITIALIZING: Department=${finalDepartment}, Date=${finalDate}`);
       
@@ -96,7 +106,8 @@ export const useDashboardData = () => {
           return;
         }
         
-        const data = await fetchDashboardData(finalDepartment, finalDate, dashboardConfig);
+        const mappedDepartment = mapDepartmentForDataFetch(finalDepartment, finalDate);
+        const data = await fetchDashboardData(mappedDepartment, finalDate, dashboardConfig);
         
         // Final check before updating state
         if (loadingRef.current !== requestKey) {
@@ -184,7 +195,8 @@ export const useDashboardData = () => {
           return;
         }
         
-        const data = await fetchDashboardData(selectedDepartment, selectedDate, dashboardConfig);
+        const mappedDepartment = mapDepartmentForDataFetch(selectedDepartment, selectedDate);
+        const data = await fetchDashboardData(mappedDepartment, selectedDate, dashboardConfig);
         
         if (loadingRef.current !== requestKey) {
           console.log(`Request ${requestKey} was cancelled after fetch`);

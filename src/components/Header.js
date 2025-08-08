@@ -15,6 +15,12 @@ import {
   Chip,
   useTheme,
   alpha,
+  Avatar,
+  Menu,
+  IconButton,
+  Divider,
+  ListItemIcon,
+  ListItemText,
 } from '@mui/material';
 import {
   Download as DownloadIcon,
@@ -27,21 +33,39 @@ import {
   HomeWork as HomeWorkIcon,
   CleaningServices as CleaningServicesIcon,
   Star as StarIcon,
+  AccountCircle as AccountCircleIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { departments } from '../utils/constants';
-import { getYesterdayDate, getCurrentDate } from '../utils/helpers';
+import { departments, AUTH_ENABLED } from '../utils/constants';
+import { getYesterdayDate, getCurrentDate, getDepartmentsForDate } from '../utils/helpers';
+import { useAuth } from '../contexts/AuthContext';
 
 const Header = ({ 
   selectedDepartment, 
-  selectedDate, 
+  selectedDate,
   onDepartmentChange, 
-  onDateChange 
+  onDateChange
 }) => {
   const [isExporting, setIsExporting] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
   const theme = useTheme();
+  const { user, signOut } = useAuth();
+
+  const handleProfileClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleProfileClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    signOut();
+    handleProfileClose();
+  };
 
   // Get department-specific icon
   const getDepartmentIcon = (department) => {
@@ -270,7 +294,7 @@ const Header = ({
       
       // Trendlines (stacked subplots - one per page) - landscape
       const trendlineConfigs = [
-        { id: 'cvr-subplot', title: '% CVR within 7 days' },
+        { id: 'cvr-subplot', title: '7D cohort - 3DW' },
         { id: 'cost-subplot', title: 'Cost Analysis' },
         { id: 'repetition-subplot', title: 'Chats with Repetition' },
         { id: 'delays-subplot', title: 'Average Delays & 4-min Messages' },
@@ -307,6 +331,13 @@ const Header = ({
     if (date === '2025-07-12') {
       alert('July 12, 2025 is not available for selection.');
       return;
+    }
+    
+    // Check if current department is valid for the new date
+    const validDepartments = getDepartmentsForDate(date);
+    if (!validDepartments.includes(selectedDepartment)) {
+      // If current department is not valid, keep the current selection or use a default
+      // (getDepartmentsForDate now always returns the same list, so this should rarely happen)
     }
     
     onDateChange(date);
@@ -434,7 +465,7 @@ const Header = ({
                       },
                     }}
                   >
-                    {departments.map(dept => {
+                    {getDepartmentsForDate(selectedDate).map(dept => {
                       const DeptIcon = getDepartmentIcon(dept);
                       return (
                         <MenuItem key={dept} value={dept}>
@@ -450,6 +481,8 @@ const Header = ({
                   </Select>
                 </FormControl>
               </Paper>
+
+
 
               {/* Date Picker */}
               <Paper
@@ -510,8 +543,90 @@ const Header = ({
               />
             </Box>
 
+            {/* User Profile - Only show when authentication is enabled */}
+            {AUTH_ENABLED && (
+              <Box sx={{ ml: { xs: 0, sm: 'auto' }, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <IconButton
+                onClick={handleProfileClick}
+                size="small"
+                sx={{
+                  padding: 1,
+                  border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.04),
+                    borderColor: theme.palette.primary.main,
+                  },
+                }}
+              >
+                <Avatar
+                  src={user?.picture}
+                  alt={user?.name}
+                  sx={{ 
+                    width: 32, 
+                    height: 32,
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  {user?.name?.charAt(0)?.toUpperCase() || <AccountCircleIcon />}
+                </Avatar>
+              </IconButton>
+
+              <Menu
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleProfileClose}
+                onClick={handleProfileClose}
+                PaperProps={{
+                  elevation: 8,
+                  sx: {
+                    overflow: 'visible',
+                    filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                    mt: 1.5,
+                    minWidth: 200,
+                    '& .MuiAvatar-root': {
+                      width: 32,
+                      height: 32,
+                      ml: -0.5,
+                      mr: 1,
+                    },
+                    '&::before': {
+                      content: '""',
+                      display: 'block',
+                      position: 'absolute',
+                      top: 0,
+                      right: 14,
+                      width: 10,
+                      height: 10,
+                      bgcolor: 'background.paper',
+                      transform: 'translateY(-50%) rotate(45deg)',
+                      zIndex: 0,
+                    },
+                  },
+                }}
+                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              >
+                <Box sx={{ px: 2, py: 1.5, borderBottom: `1px solid ${theme.palette.divider}` }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {user?.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>Sign out</ListItemText>
+                </MenuItem>
+              </Menu>
+            </Box>
+            )}
+
             {/* Export Button - Separate container for proper right alignment */}
-            <Box sx={{ ml: { xs: 0, sm: 'auto', md: 2 }, mt: { xs: 2, sm: 0 }, width: { xs: '100%', sm: 'auto' } }}>
+            <Box sx={{ ml: AUTH_ENABLED ? 2 : { xs: 0, sm: 'auto' }, mt: { xs: 2, sm: 0 }, width: { xs: '100%', sm: 'auto' } }}>
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}

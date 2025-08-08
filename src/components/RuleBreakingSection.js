@@ -24,9 +24,17 @@ import {
   Gavel as GavelIcon,
 } from '@mui/icons-material';
 
-const RuleBreakingSection = ({ dashboardData }) => {
+const RuleBreakingSection = ({ dashboardData, selectedDepartment }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
+  // Show PIL messages for all departments
+  const shouldShowDoctorsPILMessage = selectedDepartment === 'Doctors';
+  const shouldShowGeneralPILMessage = selectedDepartment !== 'Doctors';
+  
+  // Departments that should show "Pending new chatbot to go live"
+  const newChatbotDepartments = ['MaidsAT African', 'MaidsAT Ethiopian', 'Delighters', 'CC Resolvers'];
+  const shouldShowNewChatbotMessage = newChatbotDepartments.includes(selectedDepartment);
 
   // Mobile Card View for Table Data
   const MobileTableCard = ({ data, title }) => (
@@ -145,7 +153,36 @@ const RuleBreakingSection = ({ dashboardData }) => {
           </Typography>
         </Box>
 
-        {hasData ? (
+        {/* Show "Removed based on PIL request" for Doctors */}
+        {shouldShowDoctorsPILMessage ? (
+          <Box sx={{ 
+            textAlign: 'center', 
+            py: 8, 
+            color: 'text.secondary',
+            background: alpha(theme.palette.info.main, 0.05),
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
+          }}>
+            <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>📋</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 500, fontStyle: 'italic' }}>
+              Removed based on PIL request
+            </Typography>
+          </Box>
+        ) : shouldShowGeneralPILMessage ? (
+          <Box sx={{ 
+            textAlign: 'center', 
+            py: 8, 
+            color: 'text.secondary',
+            background: alpha(theme.palette.warning.main, 0.05),
+            borderRadius: 2,
+            border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}`
+          }}>
+            <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
+            <Typography variant="body1" sx={{ fontWeight: 500, fontStyle: 'italic' }}>
+              {shouldShowNewChatbotMessage ? 'Pending new chatbot to go live' : 'Pending PIL to prompt'}
+            </Typography>
+          </Box>
+        ) : hasData ? (
           <Box>
             {/* Overall Violations Table */}
             {hasOverallViolations && (
@@ -193,7 +230,7 @@ const RuleBreakingSection = ({ dashboardData }) => {
           }}>
             <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              Pending prompt (due 17 July)
+              {shouldShowNewChatbotMessage ? 'Pending new chatbot to go live' : 'Pending prompt (due 17 July)'}
             </Typography>
           </Box>
         )}

@@ -2,6 +2,8 @@ import React from 'react';
 import { ThemeProvider, CssBaseline } from '@mui/material';
 import { theme } from './theme/theme';
 import Dashboard from './components/Dashboard';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import '@fontsource/inter/300.css';
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/500.css';
@@ -17,7 +19,11 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Dashboard />
+      <AuthProvider>
+        <ProtectedRoute>
+          <Dashboard />
+        </ProtectedRoute>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -1,3 +1,4 @@
+import React from 'react';
 import { dataKeyMapping } from './constants';
 
 // Get yesterday's date as default
@@ -50,9 +51,57 @@ export const formatDisplayDate = (dateString) => {
   });
 };
 
-// Get current date formatted
-export const getCurrentDate = (selectedDate) => {
-  return formatDisplayDate(selectedDate);
+// Get current date or format provided date
+export const getCurrentDate = (dateString = null) => {
+  if (dateString) {
+    // If a date string is provided, format it for display
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', { 
+      day: '2-digit', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+  }
+  // If no date provided, return today's date in YYYY-MM-DD format
+  return new Date().toISOString().split('T')[0];
+};
+
+// Calculate 7-day moving average for a dataset
+export const calculate7DayMovingAverage = (data, valueKey) => {
+  if (!data || data.length === 0) return data;
+  
+  // Sort data by date to ensure proper order
+  const sortedData = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+  
+  return sortedData.map((item, index) => {
+    // For the first 6 points, we don't have enough data for a full 7-day average
+    if (index < 6) {
+      return {
+        ...item,
+        [`${valueKey}7dma`]: null
+      };
+    }
+    
+    // Calculate average of current point and previous 6 points (7 total)
+    const window = sortedData.slice(index - 6, index + 1);
+    const validValues = window
+      .map(d => d[valueKey])
+      .filter(val => val !== null && val !== undefined && !isNaN(val));
+    
+    if (validValues.length === 0) {
+      return {
+        ...item,
+        [`${valueKey}7dma`]: null
+      };
+    }
+    
+    const average = validValues.reduce((sum, val) => sum + parseFloat(val), 0) / validValues.length;
+    
+    return {
+      ...item,
+      [`${valueKey}7dma`]: Math.round(average * 100) / 100 // Round to 2 decimal places
+    };
+  });
 };
 
 // Update URL with department and date parameters
@@ -61,4 +110,28 @@ export const updateURL = (department, date) => {
   url.searchParams.set('department', department);
   url.searchParams.set('date', date);
   window.history.pushState({}, '', url);
+}; 
+
+// Helper function to determine if date is before AT Filipina split
+// Helper function to get the appropriate departments list based on date
+export const getDepartmentsForDate = (dateString) => {
+  const allDepartments = [
+    'All Chatbots Summary',
+    'MV Resolvers',
+    'Doctors',
+    'AT Filipina',
+    'CC Sales',
+    'Delighters',
+    'CC Resolvers',
+    'MV Sales',
+    'MaidsAT African',
+    'MaidsAT Ethiopian'
+  ];
+  
+  return allDepartments;
+};
+
+// Helper function to map department for data fetching (handles legacy mapping)
+export const mapDepartmentForDataFetch = (selectedDepartment, dateString) => {
+  return selectedDepartment;
 }; 

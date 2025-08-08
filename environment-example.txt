@@ -1,0 +1,25 @@
+# Add this to your .env file:
+
+# Google OAuth Configuration for SSO (ONLY needed if AUTH_ENABLED = true)
+REACT_APP_GOOGLE_CLIENT_ID=your_google_client_id_here.apps.googleusercontent.com
+
+# Instructions:
+# 1. Go to Google Cloud Console (https://console.cloud.google.com/)
+# 2. Create a new project or select existing project
+# 3. Enable Google+ API or Google Identity Services
+# 4. Go to Credentials > Create Credentials > OAuth 2.0 Client IDs
+# 5. Set Application type: Web application
+# 6. Add authorized JavaScript origins:
+#    - http://localhost:3000 (for development)
+#    - https://yourdomain.com (for production)
+# 7. Add authorized redirect URIs:
+#    - http://localhost:3000 (for development)
+#    - https://yourdomain.com (for production)
+# 8. Copy the Client ID and add it above
+
+# Authentication Control:
+# - Set AUTH_ENABLED = false in src/utils/constants.js to disable authentication (current default)
+# - Set AUTH_ENABLED = true in src/utils/constants.js to enable Google SSO
+
+# Domain Restriction: Hardcoded to maids.cc in the code
+# Only users with @maids.cc email addresses will be allowed to sign in (when auth is enabled) 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -25,8 +25,10 @@ import Header from './Header';
 import SnapshotSection from './SnapshotSection';
 import ConversionFunnelSection from './ConversionFunnelSection';
 import WeeklyReportSection from './WeeklyReportSection';
+import TransferInterventionSection from './TransferInterventionSection';
 import RuleBreakingSection from './RuleBreakingSection';
 import TrendlinesSection from './TrendlinesSection';
+import AllChatbotsSummary from './AllChatbotsSummary';
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -41,10 +43,20 @@ const Dashboard = () => {
     error,
     isLoadingData
   } = useDashboardData();
+  
+  // AT Filipina sub-department state
+  const [selectedATFilipinaSubDept, setSelectedATFilipinaSubDept] = useState('All');
+  
+  // Separate state for AT Filipina sub-department data
+  const [atFilipinaSubData, setAtFilipinaSubData] = useState(null);
 
   // Handle department change
   const handleDepartmentChange = (department) => {
     setSelectedDepartment(department);
+    // Reset sub-department to 'All' when changing departments
+    if (department !== 'AT Filipina') {
+      setSelectedATFilipinaSubDept('All');
+    }
     updateURL(department, selectedDate);
   };
 
@@ -53,6 +65,34 @@ const Dashboard = () => {
     setSelectedDate(date);
     updateURL(selectedDepartment, date);
   };
+  
+  // Handle AT Filipina sub-department change
+  const handleATFilipinaSubDeptChange = (subDept) => {
+    setSelectedATFilipinaSubDept(subDept);
+  };
+  
+  // Effect to fetch AT Filipina sub-department data when needed
+  useEffect(() => {
+    const fetchATFilipinaSubData = async () => {
+      if (selectedDepartment === 'AT Filipina' && selectedATFilipinaSubDept !== 'All') {
+        try {
+          const { fetchTodaysSnapshot, fetchTrendlines } = await import('../services/googleSheets');
+          const [snapshot, trendlines] = await Promise.all([
+            fetchTodaysSnapshot('AT Filipina', selectedDate, selectedATFilipinaSubDept),
+            fetchTrendlines('AT Filipina', selectedDate, selectedATFilipinaSubDept)
+          ]);
+          setAtFilipinaSubData({ snapshot, trendlines });
+        } catch (error) {
+          console.error('Error fetching AT Filipina sub-department data:', error);
+          setAtFilipinaSubData(null);
+        }
+      } else {
+        setAtFilipinaSubData(null);
+      }
+    };
+
+    fetchATFilipinaSubData();
+  }, [selectedDepartment, selectedDate, selectedATFilipinaSubDept]);
 
   // Loading state component
   const LoadingState = () => (
@@ -302,19 +342,35 @@ const Dashboard = () => {
                 exit={{ y: -20, opacity: 0 }}
                 transition={{ duration: 0.5, staggerChildren: 0.1 }}
               >
-                {/* Section 2: Today's Snapshot (includes definitions) */}
-                <motion.div
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.1 }}
-                  style={{ marginBottom: '24px' }}
-                >
-                  <SnapshotSection 
-                    selectedDepartment={selectedDepartment}
-                    selectedDate={selectedDate}
-                    dashboardData={dashboardData}
-                  />
-                </motion.div>
+                {/* All Chatbots Summary - Special View */}
+                {selectedDepartment === 'All Chatbots Summary' ? (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    style={{ marginBottom: '24px' }}
+                  >
+                    <AllChatbotsSummary 
+                      selectedDate={selectedDate}
+                    />
+                  </motion.div>
+                ) : (
+                  <>
+                    {/* Section 2: Today's Snapshot (includes definitions) */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      style={{ marginBottom: '24px' }}
+                    >
+                                          <SnapshotSection 
+                      selectedDepartment={selectedDepartment}
+                      selectedDate={selectedDate}
+                      dashboardData={atFilipinaSubData || dashboardData}
+                      selectedATFilipinaSubDept={selectedATFilipinaSubDept}
+                      onATFilipinaSubDeptChange={handleATFilipinaSubDeptChange}
+                    />
+                    </motion.div>
 
                 {/* Section 4: Conversion Funnel */}
                 <motion.div
@@ -344,28 +400,47 @@ const Dashboard = () => {
                   />
                 </motion.div>
 
-                {/* Rule breaking */}
+                {/* Transfer Intervention */}
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.4 }}
                   style={{ marginBottom: '24px' }}
                 >
-                  <RuleBreakingSection dashboardData={dashboardData} />
+                  <TransferInterventionSection 
+                    selectedDepartment={selectedDepartment}
+                    selectedDate={selectedDate}
+                    dashboardData={dashboardData}
+                  />
                 </motion.div>
 
-                {/* Trendlines */}
-                <motion.div
+                {/* Rule breaking - HIDDEN */}
+                {/* <motion.div
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.5 }}
                   style={{ marginBottom: '24px' }}
                 >
-                  <TrendlinesSection 
+                  <RuleBreakingSection 
+                    dashboardData={dashboardData} 
                     selectedDepartment={selectedDepartment}
-                    dashboardData={dashboardData}
                   />
-                </motion.div>
+                </motion.div> */}
+
+                    {/* Trendlines */}
+                    <motion.div
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.6 }}
+                      style={{ marginBottom: '24px' }}
+                    >
+                                          <TrendlinesSection 
+                      selectedDepartment={selectedDepartment}
+                      dashboardData={atFilipinaSubData || dashboardData}
+                    />
+                    </motion.div>
+                  </>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

@@ -1,3 +1,6 @@
+import { calculate7DayMovingAverage } from '../utils/helpers';
+import { AT_FILIPINA_SUB_DEPARTMENTS } from '../utils/constants';
+
 const GOOGLE_SHEETS_API_KEY = process.env.REACT_APP_GOOGLE_SHEETS_API_KEY;
 const GOOGLE_SHEETS_BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
 
@@ -120,7 +123,14 @@ const SHEET_CONFIG = {
     spreadsheetIds: {
       'MaidsAT Ethiopian': '1QALECmsK4y8Rem-SzcNus0xekmNT1Q9m2VB44ftnSrA',
       'AT Filipina': '1_2DzCsk87B6Vlki6HEfRpMuT_EbPDbQUdDx_LVTZm0E',
-      'MaidsAT African': '1NwutpT36E-lWnH1PDAqIoVLTzroKsKWvZ5WWdh8bUTE'
+      'MaidsAT African': '1NwutpT36E-lWnH1PDAqIoVLTzroKsKWvZ5WWdh8bUTE',
+      'MV Resolvers': '1PHE5kxqx6ilYrxjqahxctfkUqM1R9Ite_avYouYiayM'
+    }
+  },
+  transferIntervention: {
+    // Transfer and intervention analysis spreadsheet for MV Resolvers
+    spreadsheetIds: {
+      'MV Resolvers': '1hJUaSX75lgtKY8tnqzWVXF7MXUBGhlltTiHBu_xSM10'
     }
   }
 };
@@ -129,6 +139,19 @@ const SHEET_CONFIG = {
 const formatDateForSheetName = (dateString) => {
   const date = new Date(dateString);
   return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+};
+
+// Helper function to get the correct spreadsheet ID for AT Filipina sub-departments
+const getSpreadsheetId = (sheetType, department, subDepartment = 'All') => {
+  if (department === 'AT Filipina' && subDepartment !== 'All') {
+    const subDeptConfig = AT_FILIPINA_SUB_DEPARTMENTS[subDepartment];
+    if (subDeptConfig) {
+      // Map sheetType to the correct property in AT_FILIPINA_SUB_DEPARTMENTS
+      const configKey = sheetType === 'rawData' ? 'raw' : sheetType;
+      return subDeptConfig[configKey] || SHEET_CONFIG[sheetType].spreadsheetIds[department];
+    }
+  }
+  return SHEET_CONFIG[sheetType].spreadsheetIds[department];
 };
 
 // Try multiple date formats for sheet names
@@ -160,7 +183,9 @@ const fetchSheetData = async (spreadsheetId, range, retries = 3) => {
     throw new Error('Spreadsheet ID not provided');
   }
 
-  const url = `${GOOGLE_SHEETS_BASE_URL}/${spreadsheetId}/values/${range}?key=${GOOGLE_SHEETS_API_KEY}`;
+  // Properly encode the range to handle special characters like % in sheet names
+  const encodedRange = encodeURIComponent(range);
+  const url = `${GOOGLE_SHEETS_BASE_URL}/${spreadsheetId}/values/${encodedRange}?key=${GOOGLE_SHEETS_API_KEY}`;
   
   // Use CORS proxy to avoid CORS issues
   const corsProxies = [
@@ -271,9 +296,9 @@ export const fetchDefinitions = async () => {
 };
 
 // Fetch today's snapshot data from Data sheet
-export const fetchTodaysSnapshot = async (department, date) => {
+export const fetchTodaysSnapshot = async (department, date, subDepartment = 'All') => {
   try {
-    const spreadsheetId = SHEET_CONFIG.snapshot.spreadsheetIds[department];
+    const spreadsheetId = getSpreadsheetId('snapshot', department, subDepartment);
     
     // Fetch data from the "Data" sheet
     const data = await fetchSheetData(spreadsheetId, 'Data!A:AZ');
@@ -349,6 +374,126 @@ export const fetchConversionFunnel = async (department, date) => {
     }
     
     if (data.length === 0) return [];
+    
+    // Special handling for CC Sales and MV Sales - complex table structure
+    if (department === 'CC Sales' || department === 'MV Sales') {
+      console.log(`${department} raw funnel data from Google Sheets:`, data);
+      
+      if (data.length === 0) return [];
+      
+      // Find the main table start - look for the summary table header
+      let tableStart = -1;
+      let headerRowStart = -1;
+      
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const firstCell = row[0] || '';
+        
+        // Look for the summary table header
+        if (firstCell.includes('Summary Table')) {
+          tableStart = i;
+          console.log(`Found ${department} Summary Table at row ${i}`);
+          break;
+        }
+      }
+      
+      if (tableStart === -1) {
+        console.warn(`${department} Summary Table not found`);
+        return [];
+      }
+      
+      // Find the actual header row (should contain "Applicant Stage")
+      for (let i = tableStart + 1; i < data.length; i++) {
+        const row = data[i];
+        const firstCell = row[0] || '';
+        
+        if (firstCell.includes('Applicant Stage')) {
+          headerRowStart = i;
+          console.log(`Found header row at ${i}`);
+          break;
+        }
+      }
+      
+      if (headerRowStart === -1) {
+        console.warn('Header row with "Applicant Stage" not found');
+        // Show more context about what we found
+        console.log('Data around table start:');
+        for (let i = Math.max(0, tableStart - 2); i < Math.min(data.length, tableStart + 10); i++) {
+          console.log(`Row ${i}:`, data[i]);
+        }
+        return [];
+      }
+      
+      // Extract headers from the complex multi-row header structure
+      const headerRow1 = data[headerRowStart] || [];
+      const headerRow2 = data[headerRowStart + 1] || [];
+      
+      console.log('Header row 1:', headerRow1);
+      console.log('Header row 2:', headerRow2);
+      
+      // Show context around headers
+      console.log('Context around headers:');
+      for (let i = Math.max(0, headerRowStart - 1); i < Math.min(data.length, headerRowStart + 5); i++) {
+        console.log(`Row ${i}:`, data[i]);
+      }
+      
+      // Process the data rows after headers
+      const dataRows = [];
+      for (let i = headerRowStart + 2; i < data.length; i++) {
+        const row = data[i];
+        
+        // Stop if we hit an empty row (but be more lenient about what constitutes empty)
+        if (!row || row.length === 0 || (!row[0] && !row[1])) {
+          console.log(`Stopped at empty row ${i}:`, row);
+          break;
+        }
+        
+        // Also stop if we hit a row that looks like a new section (starts with capital letters and has very few filled cells)
+        const filledCells = row.filter(cell => cell && cell.toString().trim() !== '').length;
+        if (filledCells <= 2 && row[0] && row[0].toString().length > 20) {
+          console.log(`Stopped at potential section header at row ${i}:`, row);
+          break;
+        }
+        
+        dataRows.push(row);
+        console.log(`Added data row ${i}:`, row);
+      }
+      
+      console.log(`Found ${dataRows.length} data rows for ${department}`);
+      console.log('All data rows:', dataRows);
+      
+      // If we have very few rows, let's be more aggressive in finding data
+      if (dataRows.length < 5) {
+        console.log('Too few rows found, trying alternative approach...');
+        const alternativeRows = [];
+        
+        // Look for any row that has data in the first few columns after the headers
+        for (let i = headerRowStart + 2; i < Math.min(headerRowStart + 50, data.length); i++) {
+          const row = data[i];
+          if (row && (row[0] || row[1]) && row[0] !== '') {
+            alternativeRows.push(row);
+            console.log(`Alternative approach - found row ${i}:`, row);
+          }
+        }
+        
+        if (alternativeRows.length > dataRows.length) {
+          console.log(`Using alternative approach with ${alternativeRows.length} rows instead of ${dataRows.length}`);
+          dataRows.length = 0; // Clear the array
+          dataRows.push(...alternativeRows);
+        }
+      }
+      
+      // Return the raw structure for the component to handle the complex table layout
+      return {
+        type: 'salesFunnel',
+        department: department,
+        tableStart: tableStart,
+        headerRow1: headerRow1,
+        headerRow2: headerRow2,
+        dataRows: dataRows,
+        rawData: data
+      };
+    }
     
     // Special handling for AT Filipina - headers are in row 2, not row 1
     if (department === 'AT Filipina') {
@@ -537,10 +682,25 @@ const getDateRange = (endDate, days = 30) => {
   return dates.reverse(); // Return chronological order
 };
 
+// Helper function to get date range from a specific start date
+const getDateRangeFromStart = (startDate, endDate) => {
+  const dates = [];
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const currentDate = new Date(start);
+  while (currentDate <= end) {
+    dates.push(currentDate.toISOString().split('T')[0]);
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return dates;
+};
+
 // Fetch trendlines data from snapshot Data sheet
-export const fetchTrendlines = async (department, date) => {
+export const fetchTrendlines = async (department, date, subDepartment = 'All') => {
   try {
-    const spreadsheetId = SHEET_CONFIG.snapshot.spreadsheetIds[department];
+    const spreadsheetId = getSpreadsheetId('snapshot', department, subDepartment);
     if (!spreadsheetId) {
       throw new Error(`No spreadsheet ID found for department: ${department}`);
     }
@@ -557,7 +717,8 @@ export const fetchTrendlines = async (department, date) => {
         sentimentData: [],
         toolsData: [],
         policyData: [],
-        costData: []
+        costData: [],
+        botHandledData: []
       };
     }
     
@@ -565,11 +726,15 @@ export const fetchTrendlines = async (department, date) => {
     const headers = data[0];
     const dataRows = data.slice(1);
     
-    // Get target date range (30 days back)
-    const targetDates = getDateRange(date, 30);
-    const targetDateSet = new Set(targetDates);
+    // Get target date ranges for different metrics
+    const defaultTargetDates = getDateRange(date, 30); // Last 30 days for most metrics
+    const july16TargetDates = getDateRangeFromStart('2025-07-16', date); // From July 16 onwards
+    
+    const defaultTargetDateSet = new Set(defaultTargetDates);
+    const july16TargetDateSet = new Set(july16TargetDates);
     
     const trendlines = {
+      totalChatsData: [],
       cvrData: [],
       lossOfInterestData: [],
       repetitionData: [],
@@ -577,7 +742,8 @@ export const fetchTrendlines = async (department, date) => {
       sentimentData: [],
       toolsData: [],
       policyData: [],
-      costData: []
+      costData: [],
+      botHandledData: []
     };
     
     // Process each row
@@ -586,30 +752,35 @@ export const fetchTrendlines = async (department, date) => {
       
       const rowDate = row[0]; // Assuming first column is Date
       
-      // Only process rows within our target date range
-      if (!targetDateSet.has(rowDate)) continue;
-      
       // Convert row to object using headers
       const rowObj = {};
       headers.forEach((header, index) => {
         rowObj[header] = row[index] || '';
       });
       
-      // CVR Data (disabled but keeping structure)
-      const cvr = parsePercentage(rowObj['7DR-3DW']);
+      // Total Number of Chats Data - chats supposed to be handled by bot (from July 16 onwards)
       const totalChats = parseInt(rowObj['Total Number of Chats']) || 0;
-      if (cvr > 0 || totalChats > 0) {
+      if (totalChats > 0 && july16TargetDateSet.has(rowDate)) {
+        trendlines.totalChatsData.push({
+          date: rowDate,
+          totalChats: totalChats,
+          totalChats7dma: '' // Will be calculated later
+        });
+      }
+      
+      // CVR Data - only include points with actual CVR data (last 30 days)
+      const cvr = parsePercentage(rowObj['7DR-3DW']);
+      if (cvr > 0 && defaultTargetDateSet.has(rowDate)) {
         trendlines.cvrData.push({
           date: rowDate,
-          chats: totalChats,
           cvr: cvr,
           cvr7dma: '' // Keep empty as requested
         });
       }
       
-      // Loss of Interest Data (disabled but keeping structure)
+      // Loss of Interest Data (disabled but keeping structure) - last 30 days
       const lossOfInterest = parsePercentage(rowObj['Loss of interest']);
-      if (lossOfInterest > 0) {
+      if (lossOfInterest > 0 && defaultTargetDateSet.has(rowDate)) {
         trendlines.lossOfInterestData.push({
           date: rowDate,
           lossInterest: lossOfInterest,
@@ -618,10 +789,10 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Repetition Data - Parse "3.67%(9)" format
+      // Repetition Data - Parse "3.67%(9)" format (from July 16 onwards)
       const repetitionRaw = rowObj['Repetition %'];
       const repetition = parseRepetitionPercentage(repetitionRaw);
-      if (repetition > 0) {
+      if (repetition > 0 && july16TargetDateSet.has(rowDate)) {
         trendlines.repetitionData.push({
           date: rowDate,
           chatsRep: repetition,
@@ -629,7 +800,7 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Delay Data - Parse "00:32 (0 msg > 4 Min)" format
+      // Delay Data - Parse "00:32 (0 msg > 4 Min)" format (from July 16 onwards)
       const initialDelayRaw = rowObj['Avg Delay - Initial msg'];
       const nonInitialDelayRaw = rowObj['Avg Delay - non-initial msg'];
       
@@ -638,7 +809,7 @@ export const fetchTrendlines = async (department, date) => {
       const init4m = parseCountFromParentheses(initialDelayRaw);
       const nonInit4m = parseCountFromParentheses(nonInitialDelayRaw);
       
-      if (avgDelayInit > 0 || avgDelayNon > 0 || init4m >= 0 || nonInit4m >= 0) {
+      if ((avgDelayInit > 0 || avgDelayNon > 0 || init4m >= 0 || nonInit4m >= 0) && july16TargetDateSet.has(rowDate)) {
         trendlines.delayData.push({
           date: rowDate,
           avgDelayInit: avgDelayInit,
@@ -648,9 +819,9 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Sentiment Data - Use "Sentiment Analysis" directly
+      // Sentiment Data - Use "Sentiment Analysis" directly (last 30 days)
       const sentiment = parseFloat(rowObj['Sentiment Analysis']) || 0;
-      if (sentiment > 0) {
+      if (sentiment > 0 && defaultTargetDateSet.has(rowDate)) {
         trendlines.sentimentData.push({
           date: rowDate,
           frustrated: '', // Keep empty
@@ -659,11 +830,11 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Tools Data (disabled but keeping structure)
+      // Tools Data (disabled but keeping structure) - last 30 days
       const wrongTools = parsePercentage(rowObj['Wrong tool called']);
       const toolsMissed = parsePercentage(rowObj['Missed to be called']);
       
-      if (wrongTools > 0 || toolsMissed > 0) {
+      if ((wrongTools > 0 || toolsMissed > 0) && defaultTargetDateSet.has(rowDate)) {
         trendlines.toolsData.push({
           date: rowDate,
           wrongTools: wrongTools,
@@ -671,14 +842,14 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Policy Data (disabled but keeping structure)
+      // Policy Data (disabled but keeping structure) - last 30 days
       const ruleBreak = parsePercentage(rowObj['Rule Breaking']);
       const missing = parsePercentage(rowObj['Missing policy']);
       const unclear = parsePercentage(rowObj['Unclear policy']);
       const escalations = parsePercentage(rowObj['Transfers due to escalations']);
       const knownFlows = parsePercentage(rowObj['Transfers due to known flows']);
       
-      if (ruleBreak > 0 || missing > 0 || unclear > 0 || escalations > 0 || knownFlows > 0) {
+      if ((ruleBreak > 0 || missing > 0 || unclear > 0 || escalations > 0 || knownFlows > 0) && defaultTargetDateSet.has(rowDate)) {
         trendlines.policyData.push({
           date: rowDate,
           ruleBreak: ruleBreak,
@@ -688,9 +859,9 @@ export const fetchTrendlines = async (department, date) => {
         });
       }
       
-      // Cost Data - Parse "$32 (Last 30 days: $1,670)" format
+      // Cost Data - Parse "$32 (Last 30 days: $1,670)" format (last 30 days)
       const costRaw = rowObj['Cost'];
-      if (costRaw && costRaw.trim() !== '' && costRaw !== 'N/A') {
+      if (costRaw && costRaw.trim() !== '' && costRaw !== 'N/A' && defaultTargetDateSet.has(rowDate)) {
         const parseCostData = (costString) => {
           if (!costString) return { dailyCost: 0, last30DaysCost: null };
           
@@ -712,6 +883,16 @@ export const fetchTrendlines = async (department, date) => {
           }
         };
         
+        // Bot Handled Data - Parse "Handling %" field (from July 16 onwards)
+        const botHandledPercentage = parsePercentage(rowObj['Handling %']);
+        
+        if (botHandledPercentage > 0 && july16TargetDateSet.has(rowDate)) {
+          trendlines.botHandledData.push({
+            date: rowDate,
+            botHandled: botHandledPercentage
+          });
+        }
+        
         const costData = parseCostData(costRaw);
         
         if (costData.dailyCost > 0 || costData.last30DaysCost > 0) {
@@ -724,10 +905,34 @@ export const fetchTrendlines = async (department, date) => {
       }
     }
     
-    return trendlines;
+    // Calculate 7-day moving averages for relevant metrics
+    const processedTrendlines = {
+      ...trendlines,
+      totalChatsData: calculate7DayMovingAverage(trendlines.totalChatsData, 'totalChats'),
+      cvrData: calculate7DayMovingAverage(trendlines.cvrData, 'cvr'),
+      repetitionData: calculate7DayMovingAverage(trendlines.repetitionData, 'chatsRep'),
+      sentimentData: calculate7DayMovingAverage(trendlines.sentimentData, 'sentiment'),
+      botHandledData: calculate7DayMovingAverage(trendlines.botHandledData, 'botHandled'),
+      delayData: trendlines.delayData.map(item => ({
+        ...item,
+        avgDelayInit7dma: null, // Will be calculated separately for each delay metric
+        avgDelayNon7dma: null,
+        init4m7dma: null, // Will be calculated for 4-min count metrics
+        nonInit4m7dma: null
+      }))
+    };
+    
+    // Calculate 7DMA for all delay metrics separately
+    processedTrendlines.delayData = calculate7DayMovingAverage(processedTrendlines.delayData, 'avgDelayInit');
+    processedTrendlines.delayData = calculate7DayMovingAverage(processedTrendlines.delayData, 'avgDelayNon');
+    processedTrendlines.delayData = calculate7DayMovingAverage(processedTrendlines.delayData, 'init4m');
+    processedTrendlines.delayData = calculate7DayMovingAverage(processedTrendlines.delayData, 'nonInit4m');
+    
+    return processedTrendlines;
   } catch (error) {
     console.error('Error fetching trendlines:', error);
     return {
+      totalChatsData: [],
       cvrData: [],
       lossOfInterestData: [],
       repetitionData: [],
@@ -735,7 +940,8 @@ export const fetchTrendlines = async (department, date) => {
       sentimentData: [],
       toolsData: [],
       policyData: [],
-      costData: []
+      costData: [],
+      botHandledData: []
     };
   }
 };
@@ -830,6 +1036,145 @@ export const fetchRuleBreaking = async (department, date) => {
   }
 };
 
+// Fetch transfer and intervention analysis data for MV Resolvers
+export const fetchTransferIntervention = async (department, date) => {
+  try {
+    // Only fetch for MV Resolvers
+    if (department !== 'MV Resolvers') {
+      return [];
+    }
+
+    const spreadsheetId = SHEET_CONFIG.transferIntervention.spreadsheetIds[department];
+    
+    if (!spreadsheetId) {
+      console.warn(`No transfer intervention spreadsheet ID found for department: ${department}`);
+      return [];
+    }
+    
+    const sheetName = formatDateForSheetName(date);
+    console.log(`Fetching transfer intervention data for sheet: ${sheetName}`);
+    
+    // Expand range to include more columns (updated to include additional columns)
+    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:Z`);
+    
+    if (data.length === 0) {
+      console.warn('No data found in transfer intervention sheet');
+      return [];
+    }
+    
+    console.log(`Transfer intervention raw data (first 10 rows):`, data.slice(0, 10));
+    
+    // Look for header row with "Category" - search all columns, not just first column
+    let headerRow = -1;
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      for (let j = 0; j < row.length; j++) {
+        if (row[j] && row[j].toString().toLowerCase().includes('category')) {
+          headerRow = i;
+          console.log(`Found header row at index ${i}:`, row);
+          break;
+        }
+      }
+      if (headerRow !== -1) break;
+    }
+    
+    if (headerRow === -1) {
+      console.warn('Header row with "Category" not found in transfer intervention data');
+      console.log('All data rows:', data);
+      return [];
+    }
+    
+    const headers = data[headerRow];
+    console.log('Headers found:', headers);
+    const result = [];
+    
+    // Process data rows after the header
+    for (let i = headerRow + 1; i < data.length; i++) {
+      const row = data[i];
+      
+      // Stop if we hit an empty row or reach the end
+      if (!row[0] || row[0].toString().trim() === '') {
+        console.log(`Stopped at empty row ${i}`);
+        break;
+      }
+      
+      const item = {};
+      headers.forEach((header, index) => {
+        if (header && header.toString().trim() !== '') {
+          item[header] = row[index] || '';
+        }
+      });
+      
+      // Only add non-empty items
+      if (Object.keys(item).length > 0) {
+        result.push(item);
+      }
+    }
+    
+    console.log(`Found ${result.length} transfer intervention items:`, result);
+    return result;
+  } catch (error) {
+    console.error('Error fetching transfer intervention data:', error);
+    return [];
+  }
+};
+
+// Function to navigate to transfer/intervention raw data sheet for MV Resolvers
+export const navigateToTransferInterventionRawSheet = async (department, date) => {
+  try {
+    // Only works for MV Resolvers
+    if (department !== 'MV Resolvers') {
+      alert(`Transfer/intervention raw data navigation only available for MV Resolvers`);
+      return;
+    }
+
+    const spreadsheetId = '1hJUaSX75lgtKY8tnqzWVXF7MXUBGhlltTiHBu_xSM10';
+    const baseSheetName = formatDateForSheetName(date);
+    const sheetName = `${baseSheetName}-RAW`;
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for transfer/intervention raw:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening transfer/intervention raw URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The transfer/intervention raw sheet for date ${date} ("${sheetName}") does not exist in the spreadsheet.`);
+      } else {
+        console.error('Error checking transfer/intervention raw sheet existence:', error);
+        alert('Error checking if the transfer/intervention raw sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to transfer/intervention raw sheet:', error);
+    alert('Error navigating to transfer/intervention raw sheet. Please try again.');
+  }
+};
+
 // Function to get sheet GID by name
 const getSheetGidByName = async (spreadsheetId, sheetName) => {
   try {
@@ -875,31 +1220,59 @@ const getSheetGidByName = async (spreadsheetId, sheetName) => {
 };
 
 // Function to navigate to raw data sheet for Total Number of Chats
-export const navigateToRawDataSheet = async (department, date) => {
+export const navigateToRawDataSheet = async (department, date, subDepartment = 'All') => {
   try {
-    const spreadsheetId = SHEET_CONFIG.rawData.spreadsheetIds[department];
+    const spreadsheetId = getSpreadsheetId('rawData', department, subDepartment);
     
     if (!spreadsheetId) {
       alert(`No raw data spreadsheet configured for department: ${department}`);
       return;
     }
     
-    const sheetName = formatDateForSheetName(date);
+    const baseSheetName = formatDateForSheetName(date);
     
-    // Check if the sheet exists by trying to fetch a small amount of data
-    try {
-      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
-      
-      // Get the sheet GID for proper navigation
-      console.log('Getting sheet GID for:', sheetName);
-      const gid = await getSheetGidByName(spreadsheetId, sheetName);
-      
+    // Try multiple variations of the sheet name (with and without trailing space)
+    const sheetNameVariations = [
+      baseSheetName,           // YYYY-MM-DD
+      `${baseSheetName} `      // YYYY-MM-DD (with trailing space)
+    ];
+    
+    console.log('Trying raw data sheet name variations:', sheetNameVariations);
+    
+    let foundSheetName = null;
+    let gid = null;
+    
+    // Try each variation until one works
+    for (const sheetName of sheetNameVariations) {
+      try {
+        console.log(`Trying raw data sheet name: "${sheetName}"`);
+        await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+        
+        // Get the sheet GID for proper navigation
+        console.log('Getting sheet GID for raw data:', sheetName);
+        gid = await getSheetGidByName(spreadsheetId, sheetName);
+        foundSheetName = sheetName;
+        console.log(`Successfully found raw data sheet: "${sheetName}"`);
+        break;
+      } catch (error) {
+        if (error.message.includes('Bad Request')) {
+          console.log(`Raw data sheet "${sheetName}" not found, trying next variation...`);
+          continue;
+        } else {
+          console.error('Error checking raw data sheet existence:', error);
+          // Continue trying other variations
+          continue;
+        }
+      }
+    }
+    
+    if (foundSheetName) {
       if (gid !== null) {
         // Use the correct URL format with GID
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
-        console.log('Opening URL with GID:', sheetUrl);
+        console.log('Opening raw data URL with GID:', sheetUrl);
         console.log('Sheet GID:', gid);
-        console.log('Sheet name:', sheetName);
+        console.log('Sheet name:', foundSheetName);
         console.log('Department:', department);
         
         window.open(sheetUrl, '_blank');
@@ -911,21 +1284,94 @@ export const navigateToRawDataSheet = async (department, date) => {
         
         if (opened) {
           setTimeout(() => {
-            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${foundSheetName}" at the bottom and click on it.`);
           }, 1500);
         }
       }
-    } catch (error) {
-      if (error.message.includes('Bad Request')) {
-        alert(`The sheet for date ${date} (${sheetName}) does not exist in the ${department} raw data spreadsheet.`);
-      } else {
-        console.error('Error checking sheet existence:', error);
-        alert('Error checking if the sheet exists. Please try again.');
-      }
+    } else {
+      alert(`The sheet for date ${date} does not exist in the ${department} raw data spreadsheet.\n\nTried variations: ${sheetNameVariations.map(name => `"${name}"`).join(', ')}`);
     }
   } catch (error) {
     console.error('Error navigating to raw data sheet:', error);
     alert('Error navigating to raw data sheet. Please try again.');
+  }
+};
+
+// Function to navigate to 80% similarity sheet 
+export const navigateTo80SimilaritySheet = async (department, date) => {
+  try {
+    const spreadsheetId = SHEET_CONFIG.rawData.spreadsheetIds[department];
+    
+    if (!spreadsheetId) {
+      alert(`No raw data spreadsheet configured for department: ${department}`);
+      return;
+    }
+    
+    const baseSheetName = formatDateForSheetName(date);
+    
+    // Try multiple variations of the sheet name (with and without trailing space before "80%similarity")
+    const sheetNameVariations = [
+      `${baseSheetName} 80%similarity`,     // YYYY-MM-DD 80%similarity
+      `${baseSheetName}  80%similarity`     // YYYY-MM-DD  80%similarity (with extra space)
+    ];
+    
+    console.log('Trying 80% similarity sheet name variations:', sheetNameVariations);
+    
+    let foundSheetName = null;
+    let gid = null;
+    
+    // Try each variation until one works
+    for (const sheetName of sheetNameVariations) {
+      try {
+        console.log(`Trying 80% similarity sheet name: "${sheetName}"`);
+        await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+        
+        // Get the sheet GID for proper navigation
+        console.log('Getting sheet GID for 80% similarity:', sheetName);
+        gid = await getSheetGidByName(spreadsheetId, sheetName);
+        foundSheetName = sheetName;
+        console.log(`Successfully found 80% similarity sheet: "${sheetName}"`);
+        break;
+      } catch (error) {
+        if (error.message.includes('Bad Request')) {
+          console.log(`80% similarity sheet "${sheetName}" not found, trying next variation...`);
+          continue;
+        } else {
+          console.error('Error checking 80% similarity sheet existence:', error);
+          // Continue trying other variations
+          continue;
+        }
+      }
+    }
+    
+    if (foundSheetName) {
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening 80% similarity URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', foundSheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${foundSheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } else {
+      alert(`The 80% similarity sheet for date ${date} does not exist in the ${department} raw data spreadsheet.\n\nTried variations: ${sheetNameVariations.map(name => `"${name}"`).join(', ')}`);
+    }
+  } catch (error) {
+    console.error('Error navigating to 80% similarity sheet:', error);
+    alert('Error navigating to 80% similarity sheet. Please try again.');
   }
 };
 
@@ -994,22 +1440,52 @@ export const navigateToRepetitionSheet = async (department, date) => {
       return;
     }
     
-    const sheetName = `${formatDateForSheetName(date)} repetition`;
+    // Try multiple variations of the sheet name
+    const dateFormats = tryMultipleDateFormats(date);
+    const sheetNameVariations = [];
     
-    // Check if the sheet exists by trying to fetch a small amount of data
-    try {
-      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
-      
-      // Get the sheet GID for proper navigation
-      console.log('Getting sheet GID for repetition:', sheetName);
-      const gid = await getSheetGidByName(spreadsheetId, sheetName);
-      
+    // For each date format, try both "Repetition" (capital) and "repetition" (lowercase)
+    for (const dateFormat of dateFormats) {
+      sheetNameVariations.push(`${dateFormat} Repetition`);
+      sheetNameVariations.push(`${dateFormat} repetition`);
+    }
+    
+    console.log('Trying repetition sheet name variations:', sheetNameVariations);
+    
+    let foundSheetName = null;
+    let gid = null;
+    
+    // Try each variation until one works
+    for (const sheetName of sheetNameVariations) {
+      try {
+        console.log(`Trying repetition sheet name: ${sheetName}`);
+        await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+        
+        // Get the sheet GID for proper navigation
+        console.log('Getting sheet GID for repetition:', sheetName);
+        gid = await getSheetGidByName(spreadsheetId, sheetName);
+        foundSheetName = sheetName;
+        console.log(`Successfully found repetition sheet: ${sheetName}`);
+        break;
+      } catch (error) {
+        if (error.message.includes('Bad Request')) {
+          console.log(`Repetition sheet '${sheetName}' not found, trying next variation...`);
+          continue;
+        } else {
+          console.error('Error checking repetition sheet existence:', error);
+          // Continue trying other variations
+          continue;
+        }
+      }
+    }
+    
+    if (foundSheetName) {
       if (gid !== null) {
         // Use the correct URL format with GID
         const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
         console.log('Opening repetition URL with GID:', sheetUrl);
         console.log('Sheet GID:', gid);
-        console.log('Sheet name:', sheetName);
+        console.log('Sheet name:', foundSheetName);
         console.log('Department:', department);
         
         window.open(sheetUrl, '_blank');
@@ -1021,16 +1497,20 @@ export const navigateToRepetitionSheet = async (department, date) => {
         
         if (opened) {
           setTimeout(() => {
-            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${foundSheetName}" at the bottom and click on it.`);
           }, 1500);
         }
       }
-    } catch (error) {
-      if (error.message.includes('Bad Request')) {
-        alert(`The sheet "${sheetName}" does not exist in the ${department} raw data spreadsheet.`);
-      } else {
-        console.error('Error checking repetition sheet existence:', error);
-        alert('Error checking if the sheet exists. Please try again.');
+    } else {
+      // None of the variations worked - open spreadsheet and ask user to find manually
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+      console.log('No repetition sheet variations found, opening basic URL:', sheetUrl);
+      const opened = window.open(sheetUrl, '_blank');
+      
+      if (opened) {
+        setTimeout(() => {
+          alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab for date ${date} with "repetition" or "Repetition" in the name at the bottom and click on it.\n\nTried variations:\n${sheetNameVariations.slice(0, 4).join('\n')}`);
+        }, 1500);
       }
     }
   } catch (error) {
@@ -1094,6 +1574,61 @@ export const navigateToShadowedSheet = async (department, date) => {
   }
 };
 
+// Function to navigate to raw data sheet with shadowing tab
+export const navigateToShadowingRawDataSheet = async (department, date) => {
+  try {
+    const spreadsheetId = SHEET_CONFIG.rawData.spreadsheetIds[department];
+    
+    if (!spreadsheetId) {
+      alert(`No raw data spreadsheet configured for department: ${department}`);
+      return;
+    }
+    
+    const sheetName = `${formatDateForSheetName(date)} Shadowing`;
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for shadowing:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening shadowing raw data URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet "${sheetName}" does not exist in the ${department} raw data spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to shadowing raw data sheet:', error);
+    alert('Error opening shadowing raw data sheet. Please try again.');
+  }
+};
+
 // Function to navigate to sentiment analysis sheet
 export const navigateToSentimentSheet = async (department, date) => {
   try {
@@ -1104,25 +1639,8 @@ export const navigateToSentimentSheet = async (department, date) => {
       return;
     }
     
-    // Map department names to sheet names for sentiment analysis
-    const getDepartmentSheetName = (dept) => {
-      const mapping = {
-        'CC Sales': 'CC Sales',
-        'MV Sales': 'MV Sales',
-        'CC Resolvers': 'CC Resolvers',
-        'MV Resolvers': 'MV Resolvers',
-        'Delighters': 'Delighters',
-        'Doctors': 'Doctors',
-        'AT Filipina': 'Filipina',
-        'MaidsAT African': 'African',
-        'MaidsAT Ethiopian': 'Ethiopian'
-      };
-      return mapping[dept] || dept;
-    };
-    
-    const departmentName = getDepartmentSheetName(department);
-    const formattedDate = formatDateForSheetName(date);
-    const sheetName = `${departmentName} ${formattedDate}`;
+    // Use YYYY-MM-DD format for all departments
+    const sheetName = formatDateForSheetName(date);
     
     // Check if the sheet exists by trying to fetch a small amount of data
     try {
@@ -1177,7 +1695,7 @@ export const navigateToUnresponsiveChatsSheet = async (department, date) => {
       return;
     }
     
-    const sheetName = formatDateForSheetName(date);
+    const sheetName = `${formatDateForSheetName(date)} unresponsive`;
     
     // Check if the sheet exists by trying to fetch a small amount of data
     try {
@@ -1222,10 +1740,135 @@ export const navigateToUnresponsiveChatsSheet = async (department, date) => {
   }
 };
 
+// Function to navigate to FTR (First Time Resolution) sheet for MV Resolvers
+export const navigateToFTRSheet = async (department, date) => {
+  try {
+    // Only works for MV Resolvers
+    if (department !== 'MV Resolvers') {
+      alert(`FTR data navigation only available for MV Resolvers`);
+      return;
+    }
+
+    const spreadsheetId = '1_20GZcWM5jLCNYkE8v2_CLxi7vTUvR3IRakWKcWZmfA';
+    const sheetName = formatDateForSheetName(date); // This should be in YYYY-MM-DD format
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for FTR:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening FTR URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1000);
+        } else {
+          alert('❌ Unable to open the spreadsheet. Please check your popup blocker settings.');
+        }
+      }
+    } catch (sheetError) {
+      console.warn(`Sheet "${sheetName}" not found in FTR spreadsheet, opening spreadsheet root:`, sheetError);
+      
+      // Open the main spreadsheet if specific sheet is not found
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+      const opened = window.open(sheetUrl, '_blank');
+      
+      if (opened) {
+        alert(`⚠️ Sheet "${sheetName}" not found.\n\n✅ Main spreadsheet opened. Please look for the correct date sheet manually.`);
+      } else {
+        alert('❌ Unable to open the spreadsheet. Please check your popup blocker settings.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to FTR sheet:', error);
+    alert('❌ Error opening FTR sheet. Please try again or contact support.');
+  }
+};
+
+// Function to navigate to False Promises sheet for MV Resolvers
+export const navigateToFalsePromisesSheet = async (department, date) => {
+  try {
+    // Only works for MV Resolvers
+    if (department !== 'MV Resolvers') {
+      alert(`False Promises data navigation only available for MV Resolvers`);
+      return;
+    }
+
+    const spreadsheetId = '12DXUaXOffHVVTj3ErFLmwWnCAEk1e-ljeA6OWACOen4';
+    const sheetName = formatDateForSheetName(date); // This should be in YYYY-MM-DD format
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for False Promises:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening False Promises URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1000);
+        } else {
+          alert('❌ Unable to open the spreadsheet. Please check your popup blocker settings.');
+        }
+      }
+    } catch (sheetError) {
+      console.warn(`Sheet "${sheetName}" not found in False Promises spreadsheet, opening spreadsheet root:`, sheetError);
+      
+      // Open the main spreadsheet if specific sheet is not found
+      const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+      const opened = window.open(sheetUrl, '_blank');
+      
+      if (opened) {
+        alert(`⚠️ Sheet "${sheetName}" not found.\n\n✅ Main spreadsheet opened. Please look for the correct date sheet manually.`);
+      } else {
+        alert('❌ Unable to open the spreadsheet. Please check your popup blocker settings.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to False Promises sheet:', error);
+    alert('❌ Error opening False Promises sheet. Please try again or contact support.');
+  }
+};
+
 // Main function to fetch all dashboard data
 export const fetchDashboardData = async (department, date, config = {}) => {
   try {
-    console.log(`Fetching dashboard data for ${department} on ${date}`);
+    const subDepartment = config.atFilipinaSubDept || 'All';
+    console.log(`Fetching dashboard data for ${department} (${subDepartment}) on ${date}`);
     
     // Add a small delay to prevent rapid successive calls
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -1233,10 +1876,16 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     // Define which sections to fetch based on configuration
     const fetchTasks = [
       fetchDefinitions(),
-      fetchTodaysSnapshot(department, date),
-      fetchTrendlines(department, date),
-      fetchRuleBreaking(department, date)
+      fetchTodaysSnapshot(department, date, subDepartment),
+      fetchTrendlines(department, date, subDepartment),
+      fetchRuleBreaking(department, date),
+      fetchTransferIntervention(department, date)
     ];
+    
+    // Only fetch policy escalation data for MV Resolvers
+    if (department === 'MV Resolvers') {
+      fetchTasks.push(fetchPolicyToEscalation(department, date));
+    }
     
     // Only fetch conversion funnel for specific departments
     const shouldFetchFunnel = config.conversionFunnel?.enabledDepartments?.includes(department);
@@ -1262,6 +1911,10 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     const snapshot = results[resultIndex++];
     const trendlines = results[resultIndex++];
     const ruleBreaking = results[resultIndex++];
+    const transferIntervention = results[resultIndex++];
+    
+    // Handle policy escalation data for MV Resolvers
+    const policyEscalation = (department === 'MV Resolvers') ? results[resultIndex++] : { status: 'fulfilled', value: [] };
     
     const funnel = shouldFetchFunnel ? results[resultIndex++] : { status: 'fulfilled', value: [] };
     const lossOfInterest = shouldFetchLossOfInterest ? results[resultIndex++] : { status: 'fulfilled', value: { headers: [], data: [] } };
@@ -1273,6 +1926,7 @@ export const fetchDashboardData = async (department, date, config = {}) => {
       funnel: funnel.status === 'fulfilled' ? funnel.value : [],
       lossOfInterest: lossOfInterest.status === 'fulfilled' ? lossOfInterest.value : { headers: [], data: [] },
       trendlines: trendlines.status === 'fulfilled' ? trendlines.value : {
+        totalChatsData: [],
         cvrData: [],
         lossOfInterestData: [],
         repetitionData: [],
@@ -1285,7 +1939,9 @@ export const fetchDashboardData = async (department, date, config = {}) => {
       ruleBreaking: ruleBreaking.status === 'fulfilled' ? ruleBreaking.value : {
         overallViolations: [],
         ruleBreakdown: []
-      }
+      },
+      transferIntervention: transferIntervention.status === 'fulfilled' ? transferIntervention.value : [],
+      policyEscalation: policyEscalation.status === 'fulfilled' ? policyEscalation.value : []
     };
 
     // Log any failures
@@ -1295,10 +1951,637 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     if (lossOfInterest.status === 'rejected') console.warn('Failed to fetch loss of interest:', lossOfInterest.reason);
     if (trendlines.status === 'rejected') console.warn('Failed to fetch trendlines:', trendlines.reason);
     if (ruleBreaking.status === 'rejected') console.warn('Failed to fetch rule breaking:', ruleBreaking.reason);
+    if (transferIntervention.status === 'rejected') console.warn('Failed to fetch transfer intervention:', transferIntervention.reason);
+    if (policyEscalation.status === 'rejected') console.warn('Failed to fetch policy escalation:', policyEscalation.reason);
 
     return result;
   } catch (error) {
     console.error('Error in fetchDashboardData:', error);
     throw error;
   }
-}; 
+};
+
+// Navigation functions for MV Resolvers specific metrics
+
+// Function to navigate to Policy to cause escalation sheet
+export const navigateToPolicyEscalationSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1Fv6IzSYEAoLQhfPlFMPUb8mwNP9B723lUDv9dJHODSs';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Policy to cause escalation:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Policy to cause escalation URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Policy to cause escalation spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Policy to cause escalation sheet:', error);
+    alert('Error opening Policy to cause escalation sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Clarity Score sheet
+export const navigateToClarityScoreSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1AUN7_sJkFZXxhz63HM6FngRh-z3S6S5r4_D8hssAUHU';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Clarity Score:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Clarity Score URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Clarity Score spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Clarity Score sheet:', error);
+    alert('Error opening Clarity Score sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Clients Suspecting AI sheet
+export const navigateToClientsSuspectingAISheet = async (department, date) => {
+  try {
+    const spreadsheetId = '188ELCtuoKiYFYuOu8Y41hOGWPexVM03TSSAw8nOSd0Y';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Clients Suspecting AI:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Clients Suspecting AI URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Clients Suspecting AI spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Clients Suspecting AI sheet:', error);
+    alert('Error opening Clients Suspecting AI sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Clients Questioning Legalties sheet
+export const navigateToClientsQuestioningLegaltiesSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1KIn8ZHk1-AxN9JPq1Iy0-bhRNIG3130Uti6EWyC_djQ';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Clients Questioning Legalties:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Clients Questioning Legalties URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Clients Questioning Legalties spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Clients Questioning Legalties sheet:', error);
+    alert('Error opening Clients Questioning Legalties sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Call Request sheet
+export const navigateToCallRequestSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1uer1eNI-RhqY6jnkdpNkhUecISMNNQLGAlGaeVCWmiA';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Call Request:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Call Request URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Call Request spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Call Request sheet:', error);
+    alert('Error opening Call Request sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Rebuttal Result sheet
+export const navigateToRebuttalResultSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1uer1eNI-RhqY6jnkdpNkhUecISMNNQLGAlGaeVCWmiA';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Rebuttal Result:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Rebuttal Result URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Rebuttal Result spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Rebuttal Result sheet:', error);
+    alert('Error opening Rebuttal Result sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Threatening Case Identifier sheet
+export const navigateToThreateningCaseIdentifierSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1ulcfC7Z748YQbX-gH3kBCHxKfcz88ZJPevR28mSgBug';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Threatening Case Identifier:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Threatening Case Identifier URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Threatening Case Identifier spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Threatening Case Identifier sheet:', error);
+    alert('Error opening Threatening Case Identifier sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Medical mis-prescriptions sheet
+export const navigateToMedicalMisPrescriptionsSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '18m4ct5UZ0OBdFRfJfsSJXkjLZOY9JCK5eqqcM333z4E';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Medical mis-prescriptions:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Medical mis-prescriptions URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Medical mis-prescriptions spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Medical mis-prescriptions sheet:', error);
+    alert('Error opening Medical mis-prescriptions sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Unnecessary clinic recommendations sheet
+export const navigateToUnnecessaryClinicRecommendationsSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1dZw0qyFCX3L2XuG-GTdNOO2bR73BB198lfJ-zvf1OSI';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Unnecessary Clinic Recommendations:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Unnecessary Clinic Recommendations URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Unnecessary Clinic Recommendations spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Unnecessary Clinic Recommendations sheet:', error);
+    alert('Error opening Unnecessary Clinic Recommendations sheet. Please try again.');
+  }
+};
+
+// Function to fetch Policy to Cause Escalation data
+export const fetchPolicyToEscalation = async (department, date) => {
+  try {
+    const spreadsheetId = '1Fv6IzSYEAoLQhfPlFMPUb8mwNP9B723lUDv9dJHODSs';
+    const sheetName = `${date}-summary`;
+    const range = `${sheetName}!A:C`; // Columns A, B, C for Policy, Count, Percentage
+    
+    console.log(`Fetching Policy to Cause Escalation data for ${department} on ${date} from sheet: ${sheetName}`);
+    
+    const data = await fetchSheetData(spreadsheetId, range);
+    
+    if (!data || data.length === 0) {
+      console.log('No Policy to Cause Escalation data found');
+      return [];
+    }
+    
+    // Skip the header row and convert to objects
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    const policyData = rows.map(row => ({
+      policy: row[0] || '',
+      count: row[1] || '0',
+      percentage: row[2] || '0%'
+    })).filter(item => item.policy.trim() !== ''); // Filter out empty rows
+    
+    console.log('Policy to Cause Escalation data processed:', policyData);
+    return policyData;
+    
+  } catch (error) {
+    console.error('Error fetching Policy to Cause Escalation data:', error);
+    return [];
+  }
+};
+
+// Function to navigate to Policy to cause escalation sheet for Doctors
+export const navigateToDoctorsPolicyEscalationSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1JbZOR18qYmFah-ByM0227clI0_22wfmHwymYR6zwWAE';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Doctors Policy to cause escalation:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Doctors Policy to cause escalation URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Doctors Policy to cause escalation spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Doctors Policy to cause escalation sheet:', error);
+    alert('Error opening Doctors Policy to cause escalation sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Clarity Score sheet for Doctors
+export const navigateToDoctorsClarityScoreSheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1OZuuxlXi7c0OjWhwLbjxkHh34mZSqYXTBC-Rbo5wVAg';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Doctors Clarity Score:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Doctors Clarity Score URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Doctors Clarity Score spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Doctors Clarity Score sheet:', error);
+    alert('Error opening Doctors Clarity Score sheet. Please try again.');
+  }
+};
+
+// Function to navigate to Clients Suspecting AI sheet for Doctors
+export const navigateToDoctorsClientsSuspectingAISheet = async (department, date) => {
+  try {
+    const spreadsheetId = '1RyTaeFvZ9JttxFTl3T0d07Bzs9455-fG7Gh19fgP_L0';
+    const sheetName = formatDateForSheetName(date);
+    
+    // Check if the sheet exists by trying to fetch a small amount of data
+    try {
+      await fetchSheetData(spreadsheetId, `${sheetName}!A1:A1`);
+      
+      // Get the sheet GID for proper navigation
+      console.log('Getting sheet GID for Doctors Clients Suspecting AI:', sheetName);
+      const gid = await getSheetGidByName(spreadsheetId, sheetName);
+      
+      if (gid !== null) {
+        // Use the correct URL format with GID
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit?gid=${gid}#gid=${gid}`;
+        console.log('Opening Doctors Clients Suspecting AI URL with GID:', sheetUrl);
+        console.log('Sheet GID:', gid);
+        console.log('Sheet name:', sheetName);
+        console.log('Department:', department);
+        
+        window.open(sheetUrl, '_blank');
+      } else {
+        // Fallback to basic URL if GID not found
+        const sheetUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`;
+        console.log('GID not found, opening basic URL:', sheetUrl);
+        const opened = window.open(sheetUrl, '_blank');
+        
+        if (opened) {
+          setTimeout(() => {
+            alert(`✅ Spreadsheet opened!\n\n📋 Please look for the sheet tab named "${sheetName}" at the bottom and click on it.`);
+          }, 1500);
+        }
+      }
+    } catch (error) {
+      if (error.message.includes('Bad Request')) {
+        alert(`The sheet for date ${date} (${sheetName}) does not exist in the Doctors Clients Suspecting AI spreadsheet.`);
+      } else {
+        console.error('Error checking sheet existence:', error);
+        alert('Error checking if the sheet exists. Please try again.');
+      }
+    }
+  } catch (error) {
+    console.error('Error navigating to Doctors Clients Suspecting AI sheet:', error);
+    alert('Error opening Doctors Clients Suspecting AI sheet. Please try again.');
+  }
+};
