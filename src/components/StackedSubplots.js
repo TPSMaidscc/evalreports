@@ -191,22 +191,32 @@ const StackedSubplots = ({ title, data, metrics }) => {
                 
                 // Format value for tooltip (same logic as text labels)
                 const metricName = d.metric;
-                const shouldRemoveDecimals = metricName.includes('% Chats Rep') || 
-                                           metricName.includes('Fully handled by bot');
+                const shouldRemoveDecimals = metricName.includes('Fully handled by bot');
+                const shouldShowOneDecimal = metricName.includes('% Chats Rep');
                 
-                const displayValue = shouldRemoveDecimals && typeof d.value === 'number' 
-                  ? Math.round(d.value).toString() 
-                  : d.value;
+                let displayValue;
+                if (shouldRemoveDecimals && typeof d.value === 'number') {
+                  displayValue = Math.round(d.value).toString();
+                } else if (shouldShowOneDecimal && typeof d.value === 'number') {
+                  displayValue = d.value.toFixed(1);
+                } else {
+                  displayValue = d.value;
+                }
                 
                 return `${d.metric}: ${displayValue}\nDate: ${dateStr}`;
               } catch (error) {
                 const metricName = d.metric;
-                const shouldRemoveDecimals = metricName.includes('% Chats Rep') || 
-                                           metricName.includes('Fully handled by bot');
+                const shouldRemoveDecimals = metricName.includes('Fully handled by bot');
+                const shouldShowOneDecimal = metricName.includes('% Chats Rep');
                 
-                const displayValue = shouldRemoveDecimals && typeof d.value === 'number' 
-                  ? Math.round(d.value).toString() 
-                  : d.value;
+                let displayValue;
+                if (shouldRemoveDecimals && typeof d.value === 'number') {
+                  displayValue = Math.round(d.value).toString();
+                } else if (shouldShowOneDecimal && typeof d.value === 'number') {
+                  displayValue = d.value.toFixed(1);
+                } else {
+                  displayValue = d.value;
+                }
                 
                 return `${d.metric}: ${displayValue}\nDate: ${d.date}`;
               }
@@ -223,13 +233,15 @@ const StackedSubplots = ({ title, data, metrics }) => {
                 return ""; // Don't show value for odd indices
               }
               
-              // Remove decimals for specific metrics
+              // Format values for specific metrics
               const metricName = d.metric;
-              const shouldRemoveDecimals = metricName.includes('% Chats Rep') || 
-                                         metricName.includes('Fully handled by bot');
+              const shouldRemoveDecimals = metricName.includes('Fully handled by bot');
+              const shouldShowOneDecimal = metricName.includes('% Chats Rep');
               
               if (shouldRemoveDecimals && typeof d.value === 'number') {
                 return Math.round(d.value).toString();
+              } else if (shouldShowOneDecimal && typeof d.value === 'number') {
+                return d.value.toFixed(1);
               }
               return d.value;
             },

@@ -74,6 +74,8 @@ export const codeBasedEvalTooltips = {
   'META Quality for 97145810691': 'Current Quality Rating for the phone number (High, Medium, or Low)',
   'META Quality for 97145810641': 'Current Quality Rating for the phone number (High, Medium, or Low)',
   'LLM Model used': 'Current language model used by the chatbot',
+  'LLM Backup Model': 'Backup language model used by the chatbot in case of main model failure',
+  'Messages by backup': 'Number and percentage of messages sent by the backup model when the primary model was unavailable',
   'Reason for using the model': 'Reason why we chose this model among all models',
   'Chatbot prompt type': 'How the chatbot prompt is configured: based on policy rules or Q&As to generate the responses',
   'N8N/ERP': 'Whether the chatbot is operating on n8n or ChatAI',
@@ -121,14 +123,17 @@ export const codeBasedEvalTooltips = {
   'In-Chat Bot M20 Poke Re-engagement': 'Number of chats with re-engagement from bot M20 pokes',
   'In-Chat Agent Poke Re-engagement': 'Number of chats with re-engagement specifically from agent pokes',
   'Chats with at least 1 agent message': 'Number of chats that included at least one message from a human agent',
-  'Chats with at least 2 agent message': 'Number of chats that included at least two messages from a human agent',
-  'Chats with at least 3 agent message': 'Number of chats that included at least three messages from a human agent',
-  'Repetition static messages %': 'Percentage of chats with repeated static/template messages',
-  'Repetition dynamic messages %': 'Percentage of chats with repeated dynamic/AI-generated messages',
-  '80% similarity static messages %': 'Percentage of chats with static messages having 80% or higher similarity',
-  '80% similarity Dynamic messages %': 'Percentage of chats with dynamic messages having 80% or higher similarity',
-  '50% similarity static messages %': 'Percentage of chats with static messages having 50% or higher similarity',
-  '50% similarity Dynamic messages %': 'Percentage of chats with dynamic messages having 50% or higher similarity'
+  'Chats with at least 2 agent messages': 'Number of chats that included at least two messages from a human agent',
+  'Chats with at least 3 agent messages': 'Number of chats that included at least three messages from a human agent',
+  'Static messages %': 'Percentage of chats with repeated static/template messages',
+  'Dynamic messages %': 'Percentage of chats with repeated dynamic/AI-generated messages',
+  'Static messages %': 'Percentage of chats with static messages having 80% or higher similarity',
+  'Dynamic messages %': 'Percentage of chats with dynamic messages having 80% or higher similarity',
+  'Static messages %': 'Percentage of chats with static messages having 50% or higher similarity',
+  'Dynamic messages %': 'Percentage of chats with dynamic messages having 50% or higher similarity',
+  'Agent Intervention %': '# of messages sent by agents (excluding agent pokes) out of all messages in the chats supposed to be handled by bot',
+  'Backup model messages sent #(%)': '- #: # of messages sent by the backup model due to failure in the main model\n- %: # of messages sent by the backup model out of all the messages sent in the chats supposed to be handled by bot',
+  'Fully Handled by bot (excluding agent pokes)': 'Number of chats that were fully handled by the bot without any agent intervention, excluding agent pokes'
 };
 
 // AT Filipina sub-departments configuration

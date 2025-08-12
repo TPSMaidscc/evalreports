@@ -35,7 +35,6 @@ import {
   Psychology as PsychologyIcon,
   Person as PersonIcon,
   Code as CodeIcon,
-  Assessment as AssessmentIcon,
   Build as BuildIcon,
   Policy as PolicyIcon,
   DateRange as DateIcon,
@@ -52,6 +51,7 @@ import {
   Star as StarIcon,
   AcUnit as SnowflakeIcon,
 } from '@mui/icons-material';
+import { SiTableau as TableauIcon } from 'react-icons/si';
 import { motion, AnimatePresence } from 'framer-motion';
 import { codeBasedEvalTooltips, AT_FILIPINA_SUB_DEPARTMENTS } from '../utils/constants';
 import { navigateToRawDataSheet, navigateToBotHandledSheet, navigateToRepetitionSheet, navigateToUnresponsiveChatsSheet, navigateToSentimentSheet, navigateTo80SimilaritySheet, navigateToTransferInterventionRawSheet, navigateToShadowedSheet, navigateToShadowingRawDataSheet, navigateToFTRSheet, navigateToFalsePromisesSheet, navigateToPolicyEscalationSheet, navigateToClarityScoreSheet, navigateToClientsSuspectingAISheet, navigateToClientsQuestioningLegaltiesSheet, navigateToCallRequestSheet, navigateToThreateningCaseIdentifierSheet, navigateToMedicalMisPrescriptionsSheet, navigateToUnnecessaryClinicRecommendationsSheet, navigateToDoctorsPolicyEscalationSheet, navigateToDoctorsClarityScoreSheet, navigateToDoctorsClientsSuspectingAISheet } from '../services/googleSheets';
@@ -284,12 +284,13 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const theme = useTheme();
   const [definitionsExpanded, setDefinitionsExpanded] = React.useState(false);
   
-  // State for expandable metrics
-  const [expandedMetrics, setExpandedMetrics] = useState({
-    inChatPoke: false,
-    fullyHandledBot: false,
-    verbatimRepeated: false,
-    similarityEighty: false
+      // State for expandable metrics
+    const [expandedMetrics, setExpandedMetrics] = useState({
+      totalChats: true,
+      inChatPoke: true,
+      fullyHandledBot: true,
+    verbatimRepeated: true,
+    similarityEighty: true
   });
 
   // Loading states for metric navigation
@@ -299,7 +300,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     repetition: false,
     similarity: false,
     shadowing: false,
-    unresponsive: false
+    unresponsive: false,
+    agentIntervention: false
   });
 
   const handleDefinitionsChange = (event, isExpanded) => {
@@ -337,7 +339,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
       'repetition': 'repetition',
       'similarity': 'similarity',
       'shadowing': 'shadowing',
-      'unresponsive': 'unresponsive'
+      'unresponsive': 'unresponsive',
+      'agentIntervention': 'agent-intervention'
     };
 
     return metricMap[metricType] || metricType;
@@ -435,6 +438,21 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     } catch (error) {
       console.error('Error navigating to bot handled sheet:', error);
       alert('Error opening bot handled sheet. Please try again.');
+    }
+  };
+
+  // Handle click on Agent intervention % label to navigate to agent intervention sheet
+  const handleAgentInterventionClick = async () => {
+    console.log('Agent intervention clicked for:', selectedDepartment, selectedDate);
+    try {
+      const usedNewAPI = await navigateWithNewAPI('agentIntervention', selectedDepartment, selectedDate);
+      if (!usedNewAPI) {
+        // For dates <= 2025-08-05, show message that agent intervention data is not available
+        alert('Agent intervention data is only available for dates after August 5, 2025.');
+      }
+    } catch (error) {
+      console.error('Error navigating to agent intervention sheet:', error);
+      alert('Error opening agent intervention sheet. Please try again.');
     }
   };
 
@@ -659,7 +677,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     isClickable = false,
     icon = null,
     isIndented = false,
-    loading = false
+    loading = false,
+    sx = {}
   }) => {
     const hasTooltip = showTooltip && codeBasedEvalTooltips[label];
     
@@ -707,9 +726,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'flex-start',
-          minHeight: 32,
-          py: 0.5,
+          minHeight: isIndented ? 16 : 32,
+          py: isIndented ? 0 : 0.5,
+          mt: isIndented ? -0.5 : 0,
           pl: isIndented ? 3 : 0,
+          ...sx
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, mr: 2 }}>
@@ -1271,35 +1292,73 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
               
               {/* Rest of the Code-Based Evals metrics */}
                     <MetricRow label="LLM Model used" fieldName="LLM Model used" />
+                    <MetricRow label="LLM Backup Model" fieldName="LLM Backup Model" />
+                    <MetricRow 
+                      label="Backup model messages sent #(%)" 
+                      fieldName="Messages by backup" 
+                      isIndented={true}
+                      sx={{ mt: -2, minHeight: 12, pb: 1 }}
+                    />
                     <ReasonMetricRow label="Reason for using the model" fieldName="Reason for using the model" />
                     <MetricRow label="Chatbot prompt type" fieldName="Chatbot prompt type" />
                     <MetricRow label="N8N/ERP" fieldName="N8N/ERP" />
                     <MetricRow label="Cost ($)" fieldName="Cost ($)" />
-                    <MetricRow
-                      label="Chats supposed to be handled by bot (#)"
-                      fieldName="Chats supposed to be handled by bot (#)"
-                      clickHandler={handleTotalChatsClick}
-                      isClickable={true}
-                      icon={SnowflakeIcon}
-                      loading={loadingStates.totalChats}
-                    />
-                    {/* Expandable metrics for CC Sales and MV Sales only */}
+                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') ? (
+                      <ExpandableMetricRow
+                        label="Chats supposed to be handled by bot (#)"
+                        fieldName="Chats supposed to be handled by bot (#)"
+                        metricKey="totalChats"
+                        clickHandler={handleTotalChatsClick}
+                        isClickable={true}
+                        icon={SnowflakeIcon}
+                        loading={loadingStates.totalChats}
+                        subMetrics={[
+                          { label: "Fully Handled by bot (excluding agent pokes)", fieldName: "Fully Handled by bot (excluding agent pokes)" }
+                        ]}
+                      />
+                    ) : (
+                      <MetricRow
+                      
+                        label="Chats supposed to be handled by bot (#)"
+                        fieldName="Chats supposed to be handled by bot (#)"
+                        clickHandler={handleTotalChatsClick}
+                        isClickable={true}
+                        icon={SnowflakeIcon}
+                        loading={loadingStates.totalChats}
+                      />
+                    )}
+                                            <ExpandableMetricRow
+              
+              label="Fully handled by bot %"
+              fieldName="Fully handled by bot %"
+              metricKey="fullyHandledBot"
+              clickHandler={handleBotHandledClick}
+              isClickable={true}
+              icon={SnowflakeIcon}
+              loading={loadingStates.botHandled}
+              subMetrics={[
+                { label: "Chats with at least 1 agent message", fieldName: "Chats with at least 1 agent message" },
+                { label: "Chats with at least 2 agent messages", fieldName: "Chats with at least 2 agent messages" },
+                { label: "Chats with at least 3 agent messages", fieldName: "Chats with at least 3 agent messages" }
+              ]}
+            />
+                    
+                    {/* Agent intervention % - only for CC Sales and MV Sales */}
+                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') && (
+                      <MetricRow
+                        label="Agent Intervention %"
+                        fieldName="Agent intervention %"
+                        clickHandler={handleAgentInterventionClick}
+                        // isClickable={true}
+                        icon={SnowflakeIcon}
+                        loading={loadingStates.agentIntervention}
+                      />
+                    )}
+                    
+                                        {/* Expandable metrics for CC Sales and MV Sales only */}
                     {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') ? (
                       <>
-                        <ExpandableMetricRow
-                          label="Fully handled by bot %"
-                          fieldName="Fully handled by bot %"
-                          metricKey="fullyHandledBot"
-                          clickHandler={handleBotHandledClick}
-                          isClickable={true}
-                          icon={SnowflakeIcon}
-                          loading={loadingStates.botHandled}
-                          subMetrics={[
-                            { label: "Chats with at least 1 agent message", fieldName: "Chats with at least 1 agent message" },
-                            { label: "Chats with at least 2 agent message", fieldName: "Chats with at least 2 agent message" },
-                            { label: "Chats with at least 3 agent message", fieldName: "Chats with at least 3 agent message" }
-                          ]}
-                        />
+
                         <ExpandableMetricRow
                           label="Identical messages repeated % (Avg)"
                           fieldName="Identical messages repeated % (Avg)"
@@ -1309,8 +1368,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           icon={SnowflakeIcon}
                           loading={loadingStates.repetition}
                           subMetrics={[
-                            { label: "Repetition static messages %", fieldName: "Repetition static messages %" },
-                            { label: "Repetition dynamic messages %", fieldName: "Repetition dynamic messages %" }
+                            { label: "Static messages %", fieldName: "Repetition static messages %" },
+                            { label: "Dynamic messages %", fieldName: "Repetition dynamic messages %" }
                           ]}
                         />
                         <ExpandableMetricRow
@@ -1323,11 +1382,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           loading={loadingStates.similarity}
                           subMetrics={[
                             {
-                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %",
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "Static messages %" : "Static messages %",
                               fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %"
                             },
                             {
-                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %",
+                              label: new Date(selectedDate) >= new Date('2025-08-06') ? "Dynamic messages %" : "Dynamic messages %",
                               fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %"
                             }
                           ]}
@@ -1335,16 +1394,55 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                       </>
                     ) : (
                       <>
-                        <MetricRow label="Fully handled by bot %" fieldName="Fully handled by bot %" clickHandler={handleBotHandledClick} isClickable={true} icon={SnowflakeIcon} loading={loadingStates.botHandled} />
-                        <MetricRow label="Identical messages repeated % (Avg)" fieldName="Identical messages repeated % (Avg)" clickHandler={handleRepetitionClick} isClickable={true} icon={SnowflakeIcon} loading={loadingStates.repetition} />
-                                                 <MetricRow
-                           label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
-                           fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
-                           clickHandler={handle80SimilarityClick}
-                           isClickable={true}
-                           icon={SnowflakeIcon}
-                           loading={loadingStates.similarity}
-                         />
+                        {/* Expandable metrics for AT departments (Filipina, Ethiopian, African) */}
+                        {(['AT Filipina', 'MaidsAT Ethiopian', 'MaidsAT African'].includes(selectedDepartment)) ? (
+                          <>
+                            <ExpandableMetricRow
+                              label="Identical messages repeated % (Avg)"
+                              fieldName="Identical messages repeated % (Avg)"
+                              metricKey="verbatimRepeated"
+                              clickHandler={handleRepetitionClick}
+                              isClickable={true}
+                              icon={SnowflakeIcon}
+                              loading={loadingStates.repetition}
+                              subMetrics={[
+                                { label: "Static messages %", fieldName: "Repetition static messages %" },
+                                { label: "Dynamic messages %", fieldName: "Repetition dynamic messages %" }
+                              ]}
+                            />
+                            <ExpandableMetricRow
+                              label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                              fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                              metricKey="similarityEighty"
+                              clickHandler={handle80SimilarityClick}
+                              isClickable={true}
+                              icon={SnowflakeIcon}
+                              loading={loadingStates.similarity}
+                              subMetrics={[
+                                {
+                                  label: new Date(selectedDate) >= new Date('2025-08-06') ? "Static messages %" : "Static messages %",
+                                  fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity static messages %" : "80% similarity static messages %"
+                                },
+                                {
+                                  label: new Date(selectedDate) >= new Date('2025-08-06') ? "Dynamic messages %" : "Dynamic messages %",
+                                  fieldName: new Date(selectedDate) >= new Date('2025-08-06') ? "50% similarity Dynamic messages %" : "80% similarity Dynamic messages %"
+                                }
+                              ]}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <MetricRow label="Identical messages repeated % (Avg)" fieldName="Identical messages repeated % (Avg)" clickHandler={handleRepetitionClick} isClickable={true} icon={SnowflakeIcon} loading={loadingStates.repetition} />
+                            <MetricRow
+                              label={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                              fieldName={new Date(selectedDate) >= new Date('2025-08-06') ? "50% Message similarity %" : "80% Message similarity %"}
+                              clickHandler={handle80SimilarityClick}
+                              isClickable={true}
+                              icon={SnowflakeIcon}
+                              loading={loadingStates.similarity}
+                            />
+                          </>
+                        )}
                       </>
                     )}
                     
@@ -1433,9 +1531,10 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                       fieldName="Sentiment analysis (/5)"
                       clickHandler={handleSentimentClick}
                       isClickable={true}
+                      icon={TableauIcon}
                     />
-                    <MetricRow label="Transfers due to escalations %" fieldName="Transfers due to escalations %" />
-                    <MetricRow label="Transfers due to known flows %" fieldName="Transfers due to known flows %" />
+                    <MetricRow label="Transfers due to escalations %" fieldName="Transfers due to escalations %" icon={TableauIcon} />
+                    <MetricRow label="Transfers due to known flows %" fieldName="Transfers due to known flows %" icon={TableauIcon} />
                     
                     {/* MV Resolvers specific metrics */}
                     {selectedDepartment === 'MV Resolvers' && (
@@ -1445,45 +1544,52 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           fieldName="% False Promises %" 
                           clickHandler={selectedDepartment === 'MV Resolvers' ? handleFalsePromisesClick : null}
                           isClickable={selectedDepartment === 'MV Resolvers'}
+                          icon={TableauIcon}
                         />
 
                         
                         {/* New MV Resolvers specific metrics */}
-                        <MetricRow 
+                                                <MetricRow 
                           label="Policy to cause escalation %" 
                           fieldName="Policy to cause escalation %" 
                           clickHandler={handlePolicyEscalationClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Clarification Requested %" 
                           fieldName="Clarification Requested %" 
                           clickHandler={handleClarityScoreClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Clients Suspecting AI %" 
                           fieldName="Clients Suspecting AI %" 
                           clickHandler={handleClientsSuspectingAIClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
-                                                <MetricRow 
+                        <MetricRow 
                           label="Clients Questioning Legalties %"
                           fieldName="Clients Questioning Legalties %" 
                           clickHandler={handleClientsQuestioningLegaltiesClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Call Request %" 
                           fieldName="Call Request %" 
                           clickHandler={handleCallRequestClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Threatening Case Identifier %" 
                           fieldName="Threatening Case Identifier %" 
                           clickHandler={handleThreateningCaseIdentifierClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                       </>
                     )}
@@ -1495,6 +1601,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         fieldName="FTR" 
                         clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
                         isClickable={selectedDepartment === 'MV Resolvers'}
+                        icon={TableauIcon}
                       />
               )}
               
@@ -1507,36 +1614,42 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           fieldName="Policy to cause escalation %"
                           clickHandler={handleDoctorsPolicyEscalationClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Clarification Requested %" 
                           fieldName="Clarification Requested %"
                           clickHandler={handleDoctorsClarityScoreClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Clients Suspecting AI %" 
                           fieldName="Clients Suspecting AI %"
                           clickHandler={handleDoctorsClientsSuspectingAIClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="First Time resolution on actionable chats %" 
                           fieldName="FTR" 
                           clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
                           isClickable={selectedDepartment === 'MV Resolvers'}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Medical mis-prescriptions" 
                           fieldName="Medical mis-prescriptions"
                           clickHandler={handleMedicalMisPrescriptionsClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                         <MetricRow 
                           label="Unnecessary clinic recommendations" 
                           fieldName="Unnecessary clinic recommendations"
                           clickHandler={handleUnnecessaryClinicRecommendationsClick}
                           isClickable={true}
+                          icon={TableauIcon}
                         />
                       </>
                     )}
@@ -1550,8 +1663,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        <MetricRow label="Wrong tool called %" fieldName="Wrong tool called %" />
-                        <MetricRow label="Missed to be called %" fieldName="Missed to be called %" />
+                        <MetricRow label="Wrong tool called %" fieldName="Wrong tool called %" icon={TableauIcon} />
+                        <MetricRow label="Missed to be called %" fieldName="Missed to be called %" icon={TableauIcon} />
                       </Stack>
                     </Box>
                     
@@ -1564,8 +1677,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        <MetricRow label="Missing policy %" fieldName="Missing policy %" />
-                        <MetricRow label="Unclear policy %" fieldName="Unclear policy %" />
+                        <MetricRow label="Missing policy %" fieldName="Missing policy %" icon={TableauIcon} />
+                        <MetricRow label="Unclear policy %" fieldName="Unclear policy %" icon={TableauIcon} />
                       </Stack>
                     </Box>
                   </Stack>
@@ -1606,14 +1719,15 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                   
                   <Stack spacing={1}>
                     <MetricRow
+                      icon={SnowflakeIcon}
                       label="Chats shadowed %"
                       fieldName="Chats shadowed %"
                       clickHandler={handleChatsShadowedClick}
                       isClickable={!['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)}
                       loading={loadingStates.shadowing}
                     />
-                    <MetricRow label="Reported issue (#)" fieldName="Reported issue (#)" />
-                    <MetricRow label="Issues pending to be solved (#)" fieldName="Issues pending to be solved (#)" />
+                    <MetricRow label="Reported issue (#)" icon={SnowflakeIcon} fieldName="Reported issue (#)" />
+                    <MetricRow label="Issues pending to be solved (#)" icon={SnowflakeIcon} fieldName="Issues pending to be solved (#)" />
                     
                     {/* Shadowing Breakdown Table */}
                     <ShadowingBreakdownTable 

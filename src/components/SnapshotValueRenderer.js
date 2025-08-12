@@ -61,8 +61,17 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     }
     
     // Handle different possible formats for the value
-    // Check if it's already in the new format "8.41%(Avg. per chat:0.18)"
+    // Check if it's already in the new format "8.41%(Avg. per chat:0.18)" and reformat it
     if (actualValue.includes('Avg. per chat:')) {
+      // Parse the existing format and convert to new format
+      const match = actualValue.match(/^(\d+(?:\.\d+)?)%\s*\(Avg\. per chat:\s*([0-9.]+)\)$/);
+      if (match) {
+        const percentage = parseFloat(match[1]);
+        const avgPerChat = parseFloat(match[2]);
+        const formattedValue = `${percentage.toFixed(1)}% (Avg. per chat:${avgPerChat.toFixed(1)})`;
+        return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{formattedValue}</span>;
+      }
+      // Fallback to original value if parsing fails
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{actualValue}</span>;
     }
     
@@ -71,8 +80,9 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     if (oldMatch) {
       const percentage = parseFloat(oldMatch[1]);
       const count = parseFloat(oldMatch[2]);
+      
       // For backwards compatibility, if we have count, estimate avg per chat (this would need real data)
-      const roundedValue = `${percentage.toFixed(2)}%(Avg. per chat:${count})`;
+      const roundedValue = `${percentage.toFixed(1)}% (Avg. per chat:${count.toFixed(1)})`;
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{roundedValue}</span>;
     }
     
@@ -81,7 +91,7 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     if (newMatch) {
       const percentage = parseFloat(newMatch[1]);
       const avgPerChat = parseFloat(newMatch[2]);
-      const formattedValue = `${percentage.toFixed(2)}% (Avg. per chat: ${avgPerChat.toFixed(2)})`;
+      const formattedValue = `${percentage.toFixed(1)}% (Avg. per chat: ${avgPerChat.toFixed(1)})`;
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{formattedValue}</span>;
     }
     
@@ -95,8 +105,17 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     }
     
     // Handle different possible formats for the value
-    // Check if it's already in the new format "4.62%(Avg. per chat:1.91)"
+    // Check if it's already in the new format "4.62%(Avg. per chat:1.91)" and reformat it
     if (actualValue.includes('Avg. per chat:')) {
+      // Parse the existing format and convert to new format
+      const match = actualValue.match(/^(\d+(?:\.\d+)?)%\s*\(Avg\. per chat:\s*([0-9.]+)\)$/);
+      if (match) {
+        const percentage = parseFloat(match[1]);
+        const avgPerChat = parseFloat(match[2]);
+        const formattedValue = `${percentage.toFixed(1)}% (Avg. per chat: ${avgPerChat.toFixed(1)})`;
+        return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{formattedValue}</span>;
+      }
+      // Fallback to original value if parsing fails
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{actualValue}</span>;
     }
     
@@ -106,7 +125,7 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
       const percentage = parseFloat(oldMatch[1]);
       const count = parseFloat(oldMatch[2]);
       // For backwards compatibility, if we have count, estimate avg per chat
-      const roundedValue = `${percentage.toFixed(2)}% (Avg. per chat: ${count.toFixed(3)})`;
+      const roundedValue = `${percentage.toFixed(1)}% (Avg. per chat: ${count.toFixed(1)})`;
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{roundedValue}</span>;
     }
     
@@ -115,7 +134,7 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     if (newMatch) {
       const percentage = parseFloat(newMatch[1]);
       const avgPerChat = parseFloat(newMatch[2]);
-      const formattedValue = `${percentage.toFixed(2)}% (Avg. per chat: ${avgPerChat.toFixed(3)})`;
+      const formattedValue = `${percentage.toFixed(1)}% (Avg. per chat:${avgPerChat.toFixed(1)})`;
       return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{formattedValue}</span>;
     }
     
