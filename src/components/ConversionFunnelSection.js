@@ -598,11 +598,9 @@ const ConversionFunnelSection = ({ selectedDepartment, selectedDate, dashboardDa
         }}>
           <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
           <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-            Pending Business Team
+          Pending New Chatbot to go Live
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Needs till 28 July
-          </Typography>
+       
         </Box>
       );
     } 

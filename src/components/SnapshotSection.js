@@ -284,14 +284,13 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
   const theme = useTheme();
   const [definitionsExpanded, setDefinitionsExpanded] = React.useState(false);
   
-      // State for expandable metrics
+          // State for expandable metrics
     const [expandedMetrics, setExpandedMetrics] = useState({
-      totalChats: true,
       inChatPoke: true,
       fullyHandledBot: true,
-    verbatimRepeated: true,
-    similarityEighty: true
-  });
+      verbatimRepeated: true,
+      similarityEighty: true
+    });
 
   // Loading states for metric navigation
   const [loadingStates, setLoadingStates] = useState({
@@ -664,6 +663,48 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     } catch (error) {
       console.error('Error navigating to Threatening Case Identifier sheet:', error);
       alert('Error opening Threatening Case Identifier sheet. Please try again.');
+    }
+  };
+
+  // CC Sales specific click handlers
+  const handleCCSalesClarityScoreClick = async () => {
+    console.log('CC Sales Clarification Requested % clicked for:', selectedDepartment, selectedDate);
+    try {
+      window.open('https://docs.google.com/spreadsheets/d/1hFknnkEbbuiyBAU2OUoAMyKp0qc9zqK3o99_Z2rECLs', '_blank');
+    } catch (error) {
+      console.error('Error opening CC Sales Clarification Requested sheet:', error);
+      alert('Error opening CC Sales Clarification Requested sheet. Please try again.');
+    }
+  };
+
+  const handleCCSalesClientsSuspectingAIClick = async () => {
+    console.log('CC Sales Clients Suspecting AI % clicked for:', selectedDepartment, selectedDate);
+    try {
+      window.open('https://docs.google.com/spreadsheets/d/1odvkCDMC36YZhYOT9kb_MntxJ1PV7YnCbe5cgTTGnbQ', '_blank');
+    } catch (error) {
+      console.error('Error opening CC Sales Clients Suspecting AI sheet:', error);
+      alert('Error opening CC Sales Clients Suspecting AI sheet. Please try again.');
+    }
+  };
+
+  // MV Sales specific click handlers
+  const handleMVSalesClarityScoreClick = async () => {
+    console.log('MV Sales Clarification Requested % clicked for:', selectedDepartment, selectedDate);
+    try {
+      window.open('https://docs.google.com/spreadsheets/d/1xWX9BxmqqNC9q7-nBbcakeyb5kxp0sfXYVtRBu-W28k', '_blank');
+    } catch (error) {
+      console.error('Error opening MV Sales Clarification Requested sheet:', error);
+      alert('Error opening MV Sales Clarification Requested sheet. Please try again.');
+    }
+  };
+
+  const handleMVSalesClientsSuspectingAIClick = async () => {
+    console.log('MV Sales Clients Suspecting AI % clicked for:', selectedDepartment, selectedDate);
+    try {
+      window.open('https://docs.google.com/spreadsheets/d/1eti8KL3y44Pmp2Yp-YKit0CkHX39X0VBBG3Kck3gZ_Q', '_blank');
+    } catch (error) {
+      console.error('Error opening MV Sales Clients Suspecting AI sheet:', error);
+      alert('Error opening MV Sales Clients Suspecting AI sheet. Please try again.');
     }
   };
 
@@ -1303,30 +1344,14 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                     <MetricRow label="Chatbot prompt type" fieldName="Chatbot prompt type" />
                     <MetricRow label="N8N/ERP" fieldName="N8N/ERP" />
                     <MetricRow label="Cost ($)" fieldName="Cost ($)" />
-                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') ? (
-                      <ExpandableMetricRow
-                        label="Chats supposed to be handled by bot (#)"
-                        fieldName="Chats supposed to be handled by bot (#)"
-                        metricKey="totalChats"
-                        clickHandler={handleTotalChatsClick}
-                        isClickable={true}
-                        icon={SnowflakeIcon}
-                        loading={loadingStates.totalChats}
-                        subMetrics={[
-                          { label: "Fully Handled by bot (excluding agent pokes)", fieldName: "Fully Handled by bot (excluding agent pokes)" }
-                        ]}
-                      />
-                    ) : (
-                      <MetricRow
-                      
-                        label="Chats supposed to be handled by bot (#)"
-                        fieldName="Chats supposed to be handled by bot (#)"
-                        clickHandler={handleTotalChatsClick}
-                        isClickable={true}
-                        icon={SnowflakeIcon}
-                        loading={loadingStates.totalChats}
-                      />
-                    )}
+                    <MetricRow
+                      label="Chats supposed to be handled by bot (#)"
+                      fieldName="Chats supposed to be handled by bot (#)"
+                      clickHandler={handleTotalChatsClick}
+                      isClickable={true}
+                      icon={SnowflakeIcon}
+                      loading={loadingStates.totalChats}
+                    />
                                             <ExpandableMetricRow
               
               label="Fully handled by bot %"
@@ -1337,9 +1362,12 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
               icon={SnowflakeIcon}
               loading={loadingStates.botHandled}
               subMetrics={[
-                { label: "Chats with at least 1 agent message", fieldName: "Chats with at least 1 agent message" },
-                { label: "Chats with at least 2 agent messages", fieldName: "Chats with at least 2 agent messages" },
-                { label: "Chats with at least 3 agent messages", fieldName: "Chats with at least 3 agent messages" }
+                ...(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales' ? [
+                  { label: "Fully Handled by bot (excluding agent pokes)", fieldName: "Fully Handled by bot (excluding agent pokes)" }
+                ] : []),
+                { label: "Chats with at least 2 agent messages", fieldName: "Chats with at least 1 agent message" },
+                { label: "Chats with at least 3 agent messages", fieldName: "Chats with at least 2 agent messages" },
+                { label: "Chats with at least 5 agent messages", fieldName: "Chats with at least 3 agent messages" }
               ]}
             />
                     
@@ -1588,6 +1616,26 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           label="Threatening Case Identifier %" 
                           fieldName="Threatening Case Identifier %" 
                           clickHandler={handleThreateningCaseIdentifierClick}
+                          isClickable={true}
+                          icon={TableauIcon}
+                        />
+                      </>
+                    )}
+                    
+                    {/* CC Sales and MV Sales specific metrics */}
+                    {(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales') && (
+                      <>
+                        <MetricRow 
+                          label="Clarification Requested %" 
+                          fieldName="Clarification Requested %" 
+                          clickHandler={selectedDepartment === 'CC Sales' ? handleCCSalesClarityScoreClick : handleMVSalesClarityScoreClick}
+                          isClickable={true}
+                          icon={TableauIcon}
+                        />
+                        <MetricRow 
+                          label="Clients Suspecting AI %" 
+                          fieldName="Clients Suspecting AI %" 
+                          clickHandler={selectedDepartment === 'CC Sales' ? handleCCSalesClientsSuspectingAIClick : handleMVSalesClientsSuspectingAIClick}
                           isClickable={true}
                           icon={TableauIcon}
                         />

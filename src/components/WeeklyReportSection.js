@@ -535,10 +535,10 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
         }}>
           <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
           <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-            Pending business team
+          Pending Development
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Needs Till 24 July
+            {/* Needs Till 24 July */}
           </Typography>
         </Box>
       );

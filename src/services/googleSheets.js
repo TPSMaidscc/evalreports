@@ -301,7 +301,7 @@ export const fetchTodaysSnapshot = async (department, date, subDepartment = 'All
     const spreadsheetId = getSpreadsheetId('snapshot', department, subDepartment);
     
     // Fetch data from the "Data" sheet
-    const data = await fetchSheetData(spreadsheetId, 'Data!A:AZ');
+    const data = await fetchSheetData(spreadsheetId, 'Data!A:BG');
     
     if (data.length === 0) return {};
     
@@ -353,7 +353,7 @@ export const fetchConversionFunnel = async (department, date) => {
     for (const sheetName of dateFormats) {
       try {
         console.log(`Trying sheet name: ${sheetName}`);
-        data = await fetchSheetData(spreadsheetId, `${sheetName}!A:P`);
+        data = await fetchSheetData(spreadsheetId, `${sheetName}!A:BP`);
         successfulSheetName = sheetName;
         console.log(`Successfully found data with sheet name: ${sheetName}`);
         break;
@@ -706,7 +706,7 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
     }
     
     // Fetch data from the "Data" sheet
-    const data = await fetchSheetData(spreadsheetId, 'Data!A:AZ');
+    const data = await fetchSheetData(spreadsheetId, 'Data!A:BG');
     
     if (data.length === 0) {
       return {
@@ -960,7 +960,7 @@ export const fetchRuleBreaking = async (department, date) => {
     }
     
     const sheetName = formatDateForSheetName(date);
-    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:G`);
+    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:BG`);
     
     if (data.length === 0) {
       return {
@@ -1055,7 +1055,7 @@ export const fetchTransferIntervention = async (department, date) => {
     console.log(`Fetching transfer intervention data for sheet: ${sheetName}`);
     
     // Expand range to include more columns (updated to include additional columns)
-    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:Z`);
+    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:BG`);
     
     if (data.length === 0) {
       console.warn('No data found in transfer intervention sheet');
