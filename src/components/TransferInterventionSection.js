@@ -19,10 +19,44 @@ import {
 import {
   SwapHoriz as SwapHorizIcon,
 } from '@mui/icons-material';
+import { getCurrentDateRawTabName, getSelectedDateRawTabName } from '../utils/helpers';
+import { getSheetIdForDateTab } from '../services/googleSheets';
 
-const TransferInterventionSection = ({ dashboardData, selectedDepartment }) => {
+const TransferInterventionSection = ({ dashboardData, selectedDepartment, selectedDate }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [sheetId, setSheetId] = React.useState(null);
+  const [isLoadingSheetId, setIsLoadingSheetId] = React.useState(false);
+
+  // Function to get sheet ID for selected date tab
+  const fetchSheetId = React.useCallback(async () => {
+    if (sheetId) return; // Already fetched
+    
+    setIsLoadingSheetId(true);
+    try {
+      const selectedDateTabName = getSelectedDateRawTabName(selectedDate);
+   
+      
+      const id = await getSheetIdForDateTab(selectedDateTabName);
+  
+      
+      if (id) {
+        setSheetId(id);
+      
+      } else {
+        console.warn('No sheet ID received for tab:', selectedDateTabName);
+      }
+    } catch (error) {
+      console.error('Error fetching sheet ID:', error);
+    } finally {
+      setIsLoadingSheetId(false);
+    }
+  }, [sheetId, selectedDate]);
+
+  // Fetch sheet ID on component mount and when selectedDate changes
+  React.useEffect(() => {
+    fetchSheetId();
+  }, [fetchSheetId, selectedDate]);
 
   // Only show for MV Resolvers
   if (selectedDepartment !== 'MV Resolvers') {
@@ -130,11 +164,51 @@ const TransferInterventionSection = ({ dashboardData, selectedDepartment }) => {
             variant="h5" 
             sx={{ 
               fontWeight: 700,
-              color: 'text.primary',
               fontSize: { xs: '1.25rem', md: '1.5rem' }
             }}
           >
-            Transfer and intervention analysis
+                         <a 
+               href={sheetId 
+                 ? `https://docs.google.com/spreadsheets/d/1hJUaSX75lgtKY8tnqzWVXF7MXUBGhlltTiHBu_xSM10/edit#gid=${sheetId}`
+                 : `https://docs.google.com/spreadsheets/d/1hJUaSX75lgtKY8tnqzWVXF7MXUBGhlltTiHBu_xSM10/edit#gid=0`
+               }
+               target="_blank"
+               rel="noopener noreferrer"
+               style={{
+                 color: theme.palette.primary.main,
+                 textDecoration: 'none',
+                 cursor: 'pointer',
+                 transition: 'all 0.2s ease-in-out',
+                 '&:hover': {
+                   textDecoration: 'underline',
+                   color: theme.palette.primary.dark
+                 }
+               }}
+                               title={sheetId 
+                  ? `Click to open Transfer and intervention analysis spreadsheet directly to ${getSelectedDateRawTabName(selectedDate)} tab`
+                  : `Click to open Transfer and intervention analysis spreadsheet. Look for the tab: ${getSelectedDateRawTabName(selectedDate)}`
+                }
+               onClick={!sheetId ? fetchSheetId : undefined}
+             >
+                             Transfer and intervention analysis
+               {isLoadingSheetId && (
+                 <span style={{ marginLeft: '8px', fontSize: '0.8em', opacity: 0.7 }}>
+                   🔄
+                 </span>
+               )}
+             </a>
+          </Typography>
+          <Typography 
+            variant="body2" 
+            color="text.secondary" 
+            sx={{ 
+              fontSize: '0.75rem',
+              fontStyle: 'italic',
+              mt: 1,
+              textAlign: 'center'
+            }}
+          >
+             
           </Typography>
         </Box>
 

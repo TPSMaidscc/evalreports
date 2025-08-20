@@ -116,6 +116,7 @@ export const updateURL = (department, date) => {
 // Helper function to get the appropriate departments list based on date
 export const getDepartmentsForDate = (dateString) => {
   const allDepartments = [
+    'LLM Cost Analysis',
     'All Chatbots Summary',
     'MV Resolvers',
     'Doctors',
@@ -134,4 +135,36 @@ export const getDepartmentsForDate = (dateString) => {
 // Helper function to map department for data fetching (handles legacy mapping)
 export const mapDepartmentForDataFetch = (selectedDepartment, dateString) => {
   return selectedDepartment;
+};
+
+// Helper function to get current date in YYYY-MM-DD format
+export const getCurrentDateFormatted = () => {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Helper function to get tab name with current date and RAW format
+export const getCurrentDateRawTabName = () => {
+  const currentDate = getCurrentDateFormatted();
+  return `${currentDate}-RAW`;
+};
+
+// Helper function to get tab name with selected date and RAW format
+export const getSelectedDateRawTabName = (selectedDate) => {
+  if (!selectedDate) {
+    // Fallback to current date if no selected date provided
+    return getCurrentDateRawTabName();
+  }
+  
+  // Parse the selected date and format it
+  const date = new Date(selectedDate);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const formattedDate = `${year}-${month}-${day}`;
+  
+  return `${formattedDate}-RAW`;
 }; 

@@ -35,6 +35,7 @@ import {
   Star as StarIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
+  AttachMoney as AttachMoneyIcon,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import jsPDF from 'jspdf';
@@ -79,6 +80,8 @@ const Header = ({
       return LocalHospitalIcon; // Medical department
     } else if (department.includes('AT') || department.includes('Maids')) {
       return CleaningServicesIcon; // Domestic service departments
+    } else if (department === 'LLM Cost Analysis') {
+      return AttachMoneyIcon; // LLM Cost Analysis
     } else {
       return BusinessIcon; // Default fallback
     }
@@ -290,6 +293,11 @@ const Header = ({
       // Page 4: Weekly Report (landscape - if enabled and not in excluded departments)
       if (!['CC Resolvers', 'MV Resolvers', 'Delighters', 'Doctors'].includes(selectedDepartment)) {
         await captureAndAddElement('weekly-report', 'Weekly Report');
+      }
+      
+      // Page 5: Loss of Interest (only for AT Filipina)
+      if (selectedDepartment === 'AT Filipina') {
+        await captureAndAddElement('loss-of-interest', 'Loss of Interest');
       }
       
       // Trendlines (stacked subplots - one per page) - landscape

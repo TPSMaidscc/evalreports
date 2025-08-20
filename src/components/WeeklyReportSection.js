@@ -210,6 +210,87 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
     </Box>
   );
 
+  // Mobile Card View for Loss of Interest Data
+  const MobileLossOfInterestCard = ({ data }) => (
+    <Box>
+      {data.map((row, index) => (
+        <Card key={index} sx={{ mb: 2, border: `1px solid ${alpha(theme.palette.divider, 0.2)}` }}>
+          <CardContent sx={{ p: 2 }}>
+            <Stack spacing={1}>
+              {Object.entries(row).map(([key, value], cellIndex) => (
+                <Box key={cellIndex} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500, minWidth: '40%' }}>
+                    {key.charAt(0).toUpperCase() + key.slice(1)}:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, textAlign: 'right' }}>
+                    {value || '-'}
+                  </Typography>
+                </Box>
+              ))}
+            </Stack>
+          </CardContent>
+        </Card>
+      ))}
+    </Box>
+  );
+
+  // Desktop Table View for Loss of Interest Data
+  const DesktopLossOfInterestTable = ({ data, headers }) => (
+    <TableContainer component={Paper} sx={{ border: `1px solid ${alpha(theme.palette.divider, 0.2)}` }}>
+      <Table size="small">
+        <TableHead>
+          <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.8) }}>
+            {headers.map((header, index) => (
+              <TableCell 
+                key={index}
+                sx={{ 
+                  fontWeight: 600,
+                  color: 'white',
+                  textAlign: 'center',
+                  fontSize: '0.875rem'
+                }}
+              >
+                {header.charAt(0).toUpperCase() + header.slice(1)}
+              </TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {data.length > 0 ? data.map((row, index) => (
+            <TableRow 
+              key={index}
+              sx={{ 
+                '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) },
+                '&:hover': { backgroundColor: alpha(theme.palette.primary.main, 0.04) }
+              }}
+            >
+              {headers.map((header, cellIndex) => (
+                <TableCell 
+                  key={cellIndex}
+                  sx={{ 
+                    textAlign: 'center',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  {row[header] || '-'}
+                </TableCell>
+              ))}
+            </TableRow>
+          )) : (
+            <TableRow>
+              <TableCell 
+                colSpan={headers.length}
+                sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}
+              >
+                No data available
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+
   // Desktop Table View with responsive headers
   const DesktopWeeklyReportTable = ({ data, isCC }) => {
     const colSpan = isCC ? 13 : 12;
@@ -535,10 +616,10 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
         }}>
           <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
           <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-          Pending Development
+            Pending Development
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {/* Needs Till 24 July */}
+            {/* Needs Last 30 days */}
           </Typography>
         </Box>
       );
@@ -567,39 +648,121 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
   };
 
   return (
-    <Card 
-      id="weekly-report"
-      sx={{ 
-        mb: 3,
-        borderRadius: 2,
-        boxShadow: theme.shadows[2],
-        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-      }}
-    >
-      <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2, 
+    <Box>
+      <Card 
+        id="weekly-report"
+        sx={{ 
           mb: 3,
-          flexDirection: { xs: 'column', sm: 'row' },
-          textAlign: { xs: 'center', sm: 'left' }
-        }}>
-          <AssessmentIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              fontWeight: 700,
-              color: 'text.primary',
-              fontSize: { xs: '1.25rem', md: '1.5rem' }
-            }}
-          >
-            Weekly Report
-          </Typography>
-        </Box>
-      {renderWeeklyReportContent()}
-      </CardContent>
-    </Card>
+          borderRadius: 2,
+          boxShadow: theme.shadows[2],
+          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2, 
+            mb: 3,
+            flexDirection: { xs: 'column', sm: 'row' },
+            textAlign: { xs: 'center', sm: 'left' }
+          }}>
+            <AssessmentIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+            <Typography 
+              variant="h5" 
+              sx={{ 
+                fontWeight: 700,
+                color: 'text.primary',
+                fontSize: { xs: '1.25rem', md: '1.5rem' }
+              }}
+            >
+              Weekly Report
+            </Typography>
+          </Box>
+        {renderWeeklyReportContent()}
+        </CardContent>
+      </Card>
+
+      {/* Loss of Interest Section - Only for AT Filipina */}
+      {selectedDepartment === 'AT Filipina' && (
+        <Card 
+          id="loss-of-interest"
+          sx={{ 
+            mb: 3,
+            borderRadius: 2,
+            boxShadow: theme.shadows[2],
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2, 
+              mb: 3,
+              flexDirection: { xs: 'column', sm: 'row' },
+              textAlign: { xs: 'center', sm: 'left' }
+            }}>
+              <AssessmentIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  fontSize: { xs: '1.25rem', md: '1.5rem' }
+                }}
+              >
+                Loss of Interest
+              </Typography>
+            </Box>
+            
+            {(() => {
+              const lossOfInterestData = dashboardData.atFilipinaLossOfInterest || [];
+              
+              console.log(`🔍 WeeklyReportSection - AT Filipina Loss of Interest Debug:`);
+              console.log(`  - selectedDepartment: ${selectedDepartment}`);
+              console.log(`  - dashboardData keys:`, Object.keys(dashboardData));
+              console.log(`  - atFilipinaLossOfInterest:`, lossOfInterestData);
+              console.log(`  - Data length: ${lossOfInterestData.length}`);
+              
+              if (lossOfInterestData.length === 0) {
+                console.log(`  - No data available - showing empty state`);
+                return (
+                  <Box sx={{ 
+                    textAlign: 'center', 
+                    py: 8, 
+                    color: 'text.secondary',
+                    background: alpha(theme.palette.info.main, 0.05),
+                    borderRadius: 2,
+                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
+                  }}>
+                    <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
+                      Data not available
+                    </Typography>
+                  </Box>
+                );
+              }
+              
+              console.log(`  - Data available - rendering table`);
+              // Create table headers from the first row of data
+              const headers = Object.keys(lossOfInterestData[0] || {});
+              console.log(`  - Headers:`, headers);
+              
+              return (
+                <Box>
+                  {isMobile ? (
+                    <MobileLossOfInterestCard data={lossOfInterestData} />
+                  ) : (
+                    <DesktopLossOfInterestTable data={lossOfInterestData} headers={headers} />
+                  )}
+                </Box>
+              );
+            })()}
+          </CardContent>
+        </Card>
+      )}
+    </Box>
   );
 };
 

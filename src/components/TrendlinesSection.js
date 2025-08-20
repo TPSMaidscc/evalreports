@@ -66,14 +66,14 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
       
       if (sectionKey === 'cvrWithin7Days') {
         emoji = "❄️";
-        showTimeframe = false; // Don't show "Needs 1 week" for CVR
+        showTimeframe = false; // Don't show "Needs Last 30 days" for CVR
       } else if (sectionKey === 'lossOfInterest') {
         emoji = "📊";
-        showTimeframe = false; // Don't show "Needs 1 week" for Loss of Interest
+        showTimeframe = false; // Don't show "Needs Last 30 days" for Loss of Interest
       } else if (sectionKey === 'toolsPerformance') {
-        showTimeframe = false; // Don't show "Needs 1 week" for Tools performance
+        showTimeframe = false; // Don't show "Needs Last 30 days" for Tools performance
       } else if (sectionKey === 'rulesAndPolicy') {
-        showTimeframe = false; // Don't show "Needs 1 week" for Rules & policy performance
+        showTimeframe = false; // Don't show "Needs Last 30 days" for Rules & policy performance
       }
       
       return (
@@ -188,9 +188,9 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
           }}>
             {/* Total Chats Supposed to be Handled by Bot */}
             <Box>
-              <ChartContainer id="totalchats-subplot" title="Chats Supposed to be Handled by Bot (16 July onwards)" toggleType="totalChats">
+              <ChartContainer id="totalchats-subplot" title="Chats Supposed to be Handled by Bot" toggleType="totalChats">
                 <StackedSubplots 
-                  title="Chats Supposed to be Handled by Bot (16 July onwards)"
+                  title="Chats Supposed to be Handled by Bot"
                   data={dashboardData.trendlines.totalChatsData}
                   metrics={createChartData(dashboardData, 'totalChats', toggles.totalChats).metrics}
                 />
@@ -200,10 +200,10 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
             {/* 7D cohort - 3DW % */}
             {shouldShowSection('cvrWithin7Days') && (
               <Box>
-                <ChartContainer id="cvr-subplot" title="7D cohort - 3DW  (Last 30 days)" toggleType="cvr">
+                <ChartContainer id="cvr-subplot" title="7D cohort - 3DW " toggleType="cvr">
                   {renderDashboardSection('cvrWithin7Days',
                     <StackedSubplots 
-                      title="7D cohort - 3DW  (Last 30 days)"
+                      title="7D cohort - 3DW"
                       data={dashboardData.trendlines.cvrData}
                       metrics={createChartData(dashboardData, 'cvr', toggles.cvr).metrics}
                     />
@@ -214,9 +214,9 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Cost Subplots */}
             <Box>
-              <ChartContainer id="cost-subplot" title="Cost Analysis (Last 30 days)">
+              <ChartContainer id="cost-subplot" title="Cost Analysis">
                 <StackedSubplots 
-                  title="Cost Analysis (Last 30 days)"
+                  title="Cost Analysis"
                   data={dashboardData.trendlines.costData.filter(item => item.last30DaysCost !== null)}
                   metrics={createChartData(dashboardData, 'cost').metrics}
                 />
@@ -225,9 +225,9 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Chats with Repetition Subplots */}
             <Box>
-              <ChartContainer id="repetition-subplot" title="Chats with Repetition (16 July onwards)" toggleType="repetition">
+              <ChartContainer id="repetition-subplot" title="Chats with Repetition" toggleType="repetition">
                 <StackedSubplots 
-                  title="Chats with Repetition (16 July onwards)"
+                  title="Chats with Repetition"
                   data={dashboardData.trendlines.repetitionData}
                   metrics={createChartData(dashboardData, 'repetition', toggles.repetition).metrics}
                 />
@@ -236,9 +236,9 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Fully Handled by Bot Subplots */}
             <Box>
-              <ChartContainer id="bothandled-subplot" title="Fully Handled by Bot % (16 July onwards)" toggleType="botHandled">
+              <ChartContainer id="bothandled-subplot" title="Fully Handled by Bot %" toggleType="botHandled">
                 <StackedSubplots 
-                  title="Fully Handled by Bot % (16 July onwards)"
+                  title="Fully Handled by Bot %"
                   data={dashboardData.trendlines.botHandledData}
                   metrics={createChartData(dashboardData, 'botHandled', toggles.botHandled).metrics}
                 />
@@ -247,9 +247,9 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Average Delays & 4-min msgs Subplots */}
             <Box>
-              <ChartContainer id="delays-subplot" title="Average Delays & 4-min Messages (16 July onwards)" toggleType="delays">
+              <ChartContainer id="delays-subplot" title="Average Delays & 4-min Messages" toggleType="delays">
                 <StackedSubplots 
-                  title="Average Delays & 4-min Messages (16 July onwards)"
+                  title="Average Delays & 4-min Messages"
                   data={dashboardData.trendlines.delayData}
                   metrics={createChartData(dashboardData, 'delays', toggles.delays).metrics}
                 />
@@ -258,10 +258,10 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Sentiment analysis Subplots */}
             <Box>
-              <ChartContainer id="sentiment-subplot" title="Sentiment Analysis (Last 30 days)" toggleType="sentiment">
+              <ChartContainer id="sentiment-subplot" title="Sentiment Analysis" toggleType="sentiment">
                 {renderDashboardSection('sentimentAnalysis',
                   <StackedSubplots 
-                    title="Sentiment Analysis (Last 30 days)"
+                    title="Sentiment Analysis"
                     data={dashboardData.trendlines.sentimentData}
                     metrics={createChartData(dashboardData, 'sentiment', toggles.sentiment).metrics}
                   />
@@ -271,10 +271,10 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Tools performance Subplots */}
             <Box>
-              <ChartContainer id="tools-subplot" title="Tools Performance (Last 30 days)">
+              <ChartContainer id="tools-subplot" title="Tools Performance">
                 {renderDashboardSection('toolsPerformance',
                   <StackedSubplots 
-                    title="Tools Performance (Last 30 days)"
+                    title="Tools Performance"
                     data={dashboardData.trendlines.toolsData}
                     metrics={createChartData(dashboardData, 'tools').metrics}
                   />
@@ -313,12 +313,12 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
                 fontSize: { xs: '1.25rem', md: '1.5rem' }
               }}
             >
-              Rules & Policy Performance (Last 30 days)
+              Rules & Policy Performance
             </Typography>
           </Box>
           {renderDashboardSection('rulesAndPolicy',
             <StackedSubplots 
-              title="Rules & Policy Performance (Last 30 days)"
+              title="Rules & Policy Performance"
               data={dashboardData.trendlines.policyData}
               metrics={createChartData(dashboardData, 'policy').metrics}
             />

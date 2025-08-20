@@ -13,57 +13,57 @@ export const dashboardConfig = {
     enabled: true,
     enabledDepartments: ['AT Filipina', 'CC Sales', 'MV Sales'],
     notAvailableText: 'Pending business team',
-    timeframe: 'Till 17 July'
+    timeframe: 'Last 30 days'
   },
   lossOfInterestTable: {
     enabled: true,
     notAvailableText: 'Data not available',
-    timeframe: '1 week',
+    timeframe: 'Last 30 days',
     allowedDepartments: ['CC Sales', 'MV Sales']
   },
   trendlines: {
     cost: {
       enabled: true,
       notAvailableText: 'Data not available',
-      timeframe: '1 week'
+      timeframe: 'Last 30 days'
     },
     cvrWithin7Days: {
       enabled: true,
       notAvailableText: 'Pending Snowflake',
-      timeframe: '1 week',
+      timeframe: 'Last 30 days',
       allowedDepartments: ['CC Sales', 'MV Sales', 'AT Filipina', 'MaidsAT African', 'MaidsAT Ethiopian']
     },
     lossOfInterest: {
       enabled: false,
       notAvailableText: 'Pending Data',
-      timeframe: '1 week',
+      timeframe: 'Last 30 days',
       allowedDepartments: ['CC Sales', 'MV Sales', 'AT Filipina', 'MaidsAT African', 'MaidsAT Ethiopian'],
       enabledDepartments: ['CC Sales']
     },
     chatsWithRepetition: {
       enabled: true,
       notAvailableText: 'Data not available',
-      timeframe: '1 week'
+      timeframe: 'Last 30 days'
     },
     averageDelays: {
       enabled: true,
       notAvailableText: 'Data not available',
-      timeframe: '1 week'
+      timeframe: 'Last 30 days'
     },
     sentimentAnalysis: {
       enabled: true,
       notAvailableText: 'Data not available',
-      timeframe: '4 days'
+      timeframe: 'Last 30 days'
     },
     toolsPerformance: {
       enabled: false,
       notAvailableText: 'Data not available',
-      timeframe: '1 week'
+      timeframe: 'Last 30 days'
     },
     rulesAndPolicy: {
       enabled: false,
       notAvailableText: 'Data not available',
-      timeframe: '1 week'
+      timeframe: 'Last 30 days'
     }
   }
 };
@@ -73,6 +73,7 @@ export const codeBasedEvalTooltips = {
   'META Quality': 'Current Quality Rating for the phone number (High, Medium, or Low)',
   'META Quality for 97145810691': 'Current Quality Rating for the phone number (High, Medium, or Low)',
   'META Quality for 97145810641': 'Current Quality Rating for the phone number (High, Medium, or Low)',
+  'Spam warnings last 7 days': 'Number of spam warnings in the last 7 days',
   'LLM Model used': 'Current language model used by the chatbot',
   'LLM Backup Model': 'Backup language model used by the chatbot in case of main model failure',
   'Messages by backup': 'Number and percentage of messages sent by the backup model when the primary model was unavailable',
@@ -95,7 +96,7 @@ export const codeBasedEvalTooltips = {
   'Sentiment analysis (/5)': 'Weighted average customer satisfaction score based on AI analysis of conversation emotional states, using custom weights to emphasize different satisfaction levels',
   'Transfers due to escalations %': 'Transferred chats due to user\'s frustration and escalation out of all transfers',
   'Transfers due to known flows %': 'Transferred chats due to missing GPT flows out of all transfers',
-  '% False Promises %': 'Percentage of chats where the bot made false promises to customers',
+  'False Promises %': 'Percentage of chats where the bot made false promises to customers',
 
   'Wrong tool called %': 'Tools called when they shouldn\'t have been, or that should have called other tools instead out of the # of tools called',
   'Missed to be called %': 'Tools that should\'ve been called but were never called out of the # of tools supposed to be called',
@@ -125,12 +126,10 @@ export const codeBasedEvalTooltips = {
   'Chats with at least 5 agent messages': 'Number of chats that included at least five messages from a human agent',
   'Chats with at least 2 agent messages': 'Number of chats that included at least two messages from a human agent',
   'Chats with at least 3 agent messages': 'Number of chats that included at least three messages from a human agent',
-  'Static messages %': 'Percentage of chats with repeated static/template messages',
-  'Dynamic messages %': 'Percentage of chats with repeated dynamic/AI-generated messages',
-  'Static messages %': 'Percentage of chats with static messages having 80% or higher similarity',
-  'Dynamic messages %': 'Percentage of chats with dynamic messages having 80% or higher similarity',
-  'Static messages %': 'Percentage of chats with static messages having 50% or higher similarity',
-  'Dynamic messages %': 'Percentage of chats with dynamic messages having 50% or higher similarity',
+  'Static messages  %': 'Percentage of repeated messages that are static',
+  'Dynamic messages  %': 'Percentage of repeated messages that are dynamic',
+  'Static messages %': 'Percentage of messages having 50% or higher similarity that are static',
+  'Dynamic messages %': 'Percentage of messages having 50% or higher similarity that are dynamic',
   'Agent Intervention %': '# of messages sent by agents (excluding agent pokes) out of all messages in the chats supposed to be handled by bot',
   'Backup model messages sent #(%)': '- #: # of messages sent by the backup model due to failure in the main model\n- %: # of messages sent by the backup model out of all the messages sent in the chats supposed to be handled by bot',
   'Fully Handled by bot (excluding agent pokes)': 'Number of chats that were fully handled by the bot without any agent intervention, excluding agent pokes'
@@ -171,7 +170,8 @@ export const departments = [
   'CC Resolvers',
   'MV Sales',
   'MaidsAT African',
-  'MaidsAT Ethiopian'
+  'MaidsAT Ethiopian',
+  'LLM Cost Analysis'
 ];
 
 // Display name to data key mapping
@@ -189,7 +189,7 @@ export const dataKeyMapping = {
   'Sentiment analysis (/5)': 'Sentiment Analysis',
   'Transfers due to escalations %': 'Transfers due to escalations',
   'Transfers due to known flows %': 'Transfers due to known flows',
-  '% False Promises %': '% False Promises',
+  'False Promises %': '% False Promises',
 
   'Wrong tool called %': 'Wrong tool called',
   'Missed to be called %': 'Missed to be called',

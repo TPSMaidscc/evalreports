@@ -12,6 +12,7 @@ export const useDashboardData = () => {
     snapshot: {},
     funnel: [],
     lossOfInterest: { headers: [], data: [] },
+    atFilipinaLossOfInterest: [],
     trendlines: {
       cvrData: [],
       lossOfInterestData: [],
@@ -78,6 +79,7 @@ export const useDashboardData = () => {
         snapshot: {},
         funnel: [],
         lossOfInterest: { headers: [], data: [] },
+        atFilipinaLossOfInterest: [],
         trendlines: {
           cvrData: [],
           lossOfInterestData: [],
@@ -172,6 +174,7 @@ export const useDashboardData = () => {
       snapshot: {},
       funnel: [],
       lossOfInterest: { headers: [], data: [] },
+      atFilipinaLossOfInterest: [],
       trendlines: {
         cvrData: [],
         lossOfInterestData: [],

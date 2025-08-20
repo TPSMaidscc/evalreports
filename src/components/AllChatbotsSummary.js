@@ -25,7 +25,7 @@ const AllChatbotsSummary = ({ selectedDate }) => {
 
   // Get departments based on selected date (excluding All Chatbots Summary itself)
   const getDepartmentsForSummary = (date) => {
-    return getDepartmentsForDate(date).filter(dept => dept !== 'All Chatbots Summary');
+    return getDepartmentsForDate(date).filter(dept => dept !== 'All Chatbots Summary' && dept !== 'LLM Cost Analysis');
   };
 
   useEffect(() => {
@@ -155,7 +155,7 @@ const AllChatbotsSummary = ({ selectedDate }) => {
                   }}>
                     Chat Bot
                   </StyledTableCell>
-                  <StyledTableCell colSpan={10} isHeader sx={{ fontWeight: 700, backgroundColor: '#4A90E2', color: 'white' }}>
+                  <StyledTableCell colSpan={11} isHeader sx={{ fontWeight: 700, backgroundColor: '#4A90E2', color: 'white' }}>
                     Code-based Evals
                   </StyledTableCell>
                   <StyledTableCell colSpan={7} isHeader sx={{ fontWeight: 700, backgroundColor: '#FF8C42', color: 'white' }}>
@@ -168,8 +168,9 @@ const AllChatbotsSummary = ({ selectedDate }) => {
 
                 {/* Row 3: Sub-categories */}
                 <TableRow>
-                  {/* Code-based Evals individual headers (cols 2-9) */}
+                  {/* Code-based Evals individual headers (cols 2-10) */}
                   <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '120px', backgroundColor: '#4A90E2', color: 'white' }}>META Quality</StyledTableCell>
+                  <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '140px', backgroundColor: '#4A90E2', color: 'white' }}>Spam warnings last 7 days</StyledTableCell>
                   <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '130px', backgroundColor: '#4A90E2', color: 'white' }}>LLM Model Used</StyledTableCell>
                   <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '100px', backgroundColor: '#4A90E2', color: 'white' }}>Cost ($)</StyledTableCell>
                   <StyledTableCell rowSpan={2} isHeader sx={{ minWidth: '160px', backgroundColor: '#4A90E2', color: 'white' }}>Chats supposed to be handled by bot (#)</StyledTableCell>
@@ -248,9 +249,10 @@ const AllChatbotsSummary = ({ selectedDate }) => {
                       {department}
                     </StyledTableCell>
                     
-                    {/* Code-based Evals columns */}
-                    <StyledTableCell>{formatMetaQuality(data, department)}</StyledTableCell>
-                    <StyledTableCell>{formatValue(data['LLM Model used'])}</StyledTableCell>
+                                         {/* Code-based Evals columns */}
+                     <StyledTableCell>{formatMetaQuality(data, department)}</StyledTableCell>
+                     <StyledTableCell>{formatValue(data['Spam warnings last 7 days'])}</StyledTableCell>
+                     <StyledTableCell>{formatValue(data['LLM Model used'])}</StyledTableCell>
                     <StyledTableCell>{formatValue(data['Cost'])}</StyledTableCell>
                     <StyledTableCell>{formatValue(data['Total Number of Chats'])}</StyledTableCell>
                     <StyledTableCell>{formatValue(data['Handling %'])}</StyledTableCell>

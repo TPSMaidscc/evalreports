@@ -51,7 +51,7 @@ import {
   Star as StarIcon,
   AcUnit as SnowflakeIcon,
 } from '@mui/icons-material';
-import { SiTableau as TableauIcon } from 'react-icons/si';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { codeBasedEvalTooltips, AT_FILIPINA_SUB_DEPARTMENTS } from '../utils/constants';
 import { navigateToRawDataSheet, navigateToBotHandledSheet, navigateToRepetitionSheet, navigateToUnresponsiveChatsSheet, navigateToSentimentSheet, navigateTo80SimilaritySheet, navigateToTransferInterventionRawSheet, navigateToShadowedSheet, navigateToShadowingRawDataSheet, navigateToFTRSheet, navigateToFalsePromisesSheet, navigateToPolicyEscalationSheet, navigateToClarityScoreSheet, navigateToClientsSuspectingAISheet, navigateToClientsQuestioningLegaltiesSheet, navigateToCallRequestSheet, navigateToThreateningCaseIdentifierSheet, navigateToMedicalMisPrescriptionsSheet, navigateToUnnecessaryClinicRecommendationsSheet, navigateToDoctorsPolicyEscalationSheet, navigateToDoctorsClarityScoreSheet, navigateToDoctorsClientsSuspectingAISheet } from '../services/googleSheets';
@@ -1322,13 +1322,27 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           fieldName="META Quality for 97145810641"
                           icon={SnowflakeIcon}
                         />
+                        <MetricRow 
+                          label="Spam warnings last 7 days"
+                          fieldName="Spam warnings last 7 days"
+                          isIndented={true}
+                          sx={{ mt: -2, minHeight: 12, pb: 2 }}
+                        />
                 </>
               ) : (
-                      <MetricRow 
-                        label="META Quality"
-                        fieldName="META Quality"
-                        icon={SnowflakeIcon}
-                      />
+                      <>
+                        <MetricRow 
+                          label="META Quality"
+                          fieldName="META Quality"
+                          icon={SnowflakeIcon}
+                        />
+                        <MetricRow 
+                          label="Spam warnings last 7 days"
+                          fieldName="Spam warnings last 7 days"
+                          isIndented={true}
+                          sx={{ mt: -2, minHeight: 12, pb: 1 }}
+                        />
+                      </>
               )}
               
               {/* Rest of the Code-Based Evals metrics */}
@@ -1396,8 +1410,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           icon={SnowflakeIcon}
                           loading={loadingStates.repetition}
                           subMetrics={[
-                            { label: "Static messages %", fieldName: "Repetition static messages %" },
-                            { label: "Dynamic messages %", fieldName: "Repetition dynamic messages %" }
+                            { label: "Static messages  %", fieldName: "Repetition static messages %" },
+                            { label: "Dynamic messages  %", fieldName: "Repetition dynamic messages %" }
                           ]}
                         />
                         <ExpandableMetricRow
@@ -1434,8 +1448,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                               icon={SnowflakeIcon}
                               loading={loadingStates.repetition}
                               subMetrics={[
-                                { label: "Static messages %", fieldName: "Repetition static messages %" },
-                                { label: "Dynamic messages %", fieldName: "Repetition dynamic messages %" }
+                                { label: "Static messages  %", fieldName: "Repetition static messages %" },
+                                { label: "Dynamic messages  %", fieldName: "Repetition dynamic messages %" }
                               ]}
                             />
                             <ExpandableMetricRow
@@ -1559,65 +1573,56 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                       fieldName="Sentiment analysis (/5)"
                       clickHandler={handleSentimentClick}
                       isClickable={true}
-                      icon={TableauIcon}
+                      icon={SnowflakeIcon}
                     />
-                    <MetricRow label="Transfers due to escalations %" fieldName="Transfers due to escalations %" icon={TableauIcon} />
-                    <MetricRow label="Transfers due to known flows %" fieldName="Transfers due to known flows %" icon={TableauIcon} />
+                    <MetricRow label="Transfers due to escalations %" fieldName="Transfers due to escalations %" icon={SnowflakeIcon} />
+                    <MetricRow label="Transfers due to known flows %" fieldName="Transfers due to known flows %" icon={SnowflakeIcon} />
                     
                     {/* MV Resolvers specific metrics */}
                     {selectedDepartment === 'MV Resolvers' && (
                       <>
-                        <MetricRow 
-                          label="% False Promises %" 
-                          fieldName="% False Promises %" 
-                          clickHandler={selectedDepartment === 'MV Resolvers' ? handleFalsePromisesClick : null}
-                          isClickable={selectedDepartment === 'MV Resolvers'}
-                          icon={TableauIcon}
-                        />
-
-                        
                         {/* New MV Resolvers specific metrics */}
-                                                <MetricRow 
+                        <MetricRow 
                           label="Policy to cause escalation %" 
                           fieldName="Policy to cause escalation %" 
                           clickHandler={handlePolicyEscalationClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clarification Requested %" 
                           fieldName="Clarification Requested %" 
                           clickHandler={handleClarityScoreClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clients Suspecting AI %" 
                           fieldName="Clients Suspecting AI %" 
                           clickHandler={handleClientsSuspectingAIClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clients Questioning Legalties %"
                           fieldName="Clients Questioning Legalties %" 
                           clickHandler={handleClientsQuestioningLegaltiesClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Call Request %" 
                           fieldName="Call Request %" 
                           clickHandler={handleCallRequestClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Threatening Case Identifier %" 
                           fieldName="Threatening Case Identifier %" 
                           clickHandler={handleThreateningCaseIdentifierClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                       </>
                     )}
@@ -1630,14 +1635,14 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           fieldName="Clarification Requested %" 
                           clickHandler={selectedDepartment === 'CC Sales' ? handleCCSalesClarityScoreClick : handleMVSalesClarityScoreClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clients Suspecting AI %" 
                           fieldName="Clients Suspecting AI %" 
                           clickHandler={selectedDepartment === 'CC Sales' ? handleCCSalesClientsSuspectingAIClick : handleMVSalesClientsSuspectingAIClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                       </>
                     )}
@@ -1649,7 +1654,7 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         fieldName="FTR" 
                         clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
                         isClickable={selectedDepartment === 'MV Resolvers'}
-                        icon={TableauIcon}
+                        icon={SnowflakeIcon}
                       />
               )}
               
@@ -1662,42 +1667,42 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                           fieldName="Policy to cause escalation %"
                           clickHandler={handleDoctorsPolicyEscalationClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clarification Requested %" 
                           fieldName="Clarification Requested %"
                           clickHandler={handleDoctorsClarityScoreClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Clients Suspecting AI %" 
                           fieldName="Clients Suspecting AI %"
                           clickHandler={handleDoctorsClientsSuspectingAIClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="First Time resolution on actionable chats %" 
                           fieldName="FTR" 
                           clickHandler={selectedDepartment === 'MV Resolvers' ? handleFTRClick : null}
                           isClickable={selectedDepartment === 'MV Resolvers'}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Medical mis-prescriptions" 
                           fieldName="Medical mis-prescriptions"
                           clickHandler={handleMedicalMisPrescriptionsClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                         <MetricRow 
                           label="Unnecessary clinic recommendations" 
                           fieldName="Unnecessary clinic recommendations"
                           clickHandler={handleUnnecessaryClinicRecommendationsClick}
                           isClickable={true}
-                          icon={TableauIcon}
+                          icon={SnowflakeIcon}
                         />
                       </>
                     )}
@@ -1711,8 +1716,17 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        <MetricRow label="Wrong tool called %" fieldName="Wrong tool called %" icon={TableauIcon} />
-                        <MetricRow label="Missed to be called %" fieldName="Missed to be called %" icon={TableauIcon} />
+                        <MetricRow label="Wrong tool called %" fieldName="Wrong tool called %" icon={SnowflakeIcon} />
+                        <MetricRow label="Missed to be called %" fieldName="Missed to be called %" icon={SnowflakeIcon} />
+                        {selectedDepartment === 'MV Resolvers' && (
+                          <MetricRow 
+                            label="False Promises %" 
+                            fieldName="False Promises %" 
+                            clickHandler={handleFalsePromisesClick}
+                            isClickable={true}
+                            icon={SnowflakeIcon}
+                          />
+                        )}
                       </Stack>
                     </Box>
                     
@@ -1725,8 +1739,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        <MetricRow label="Missing policy %" fieldName="Missing policy %" icon={TableauIcon} />
-                        <MetricRow label="Unclear policy %" fieldName="Unclear policy %" icon={TableauIcon} />
+                        <MetricRow label="Missing policy %" fieldName="Missing policy %" icon={SnowflakeIcon} />
+                        <MetricRow label="Unclear policy %" fieldName="Unclear policy %" icon={SnowflakeIcon} />
                       </Stack>
                     </Box>
                   </Stack>

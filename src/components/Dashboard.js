@@ -29,6 +29,7 @@ import TransferInterventionSection from './TransferInterventionSection';
 import RuleBreakingSection from './RuleBreakingSection';
 import TrendlinesSection from './TrendlinesSection';
 import AllChatbotsSummary from './AllChatbotsSummary';
+import LLMCostAnalysis from './LLMCostAnalysis';
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -350,7 +351,18 @@ const Dashboard = () => {
                     transition={{ delay: 0.1 }}
                     style={{ marginBottom: '24px' }}
                   >
-                    <AllChatbotsSummary 
+                    <AllChatbotsSummary
+                      selectedDate={selectedDate}
+                    />
+                  </motion.div>
+                ) : selectedDepartment === 'LLM Cost Analysis' ? (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.1 }}
+                    style={{ marginBottom: '24px' }}
+                  >
+                    <LLMCostAnalysis
                       selectedDate={selectedDate}
                     />
                   </motion.div>

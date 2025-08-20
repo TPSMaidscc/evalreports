@@ -6,6 +6,7 @@ const GOOGLE_SHEETS_BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 // Configuration for different sheet types
 const SHEET_CONFIG = {
+
   definitions: {
     spreadsheetId: process.env.REACT_APP_DEFINITIONS_SHEET_ID,
     sheetName: 'Definitions'
@@ -135,6 +136,45 @@ const SHEET_CONFIG = {
   }
 };
 
+// Transfer and intervention analysis spreadsheet ID
+const TRANSFER_INTERVENTION_SPREADSHEET_ID = '1hJUaSX75lgtKY8tnqzWVXF7MXUBGhlltTiHBu_xSM10';
+
+// Function to get sheet ID for a specific date tab in transfer intervention spreadsheet
+export const getSheetIdForDateTab = async (dateTabName) => {
+  try {
+    console.log('getSheetIdForDateTab called with:', dateTabName);
+    console.log('API Key available:', !!GOOGLE_SHEETS_API_KEY);
+    console.log('Spreadsheet ID:', TRANSFER_INTERVENTION_SPREADSHEET_ID);
+    
+    const url = `${GOOGLE_SHEETS_BASE_URL}/${TRANSFER_INTERVENTION_SPREADSHEET_ID}?key=${GOOGLE_SHEETS_API_KEY}`;
+    console.log('Fetching from URL:', url.replace(GOOGLE_SHEETS_API_KEY, 'API_KEY_HIDDEN'));
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+  
+    
+    // Find the sheet with the matching name
+    const targetSheet = data.sheets.find(sheet => 
+      sheet.properties.title === dateTabName
+    );
+    
+    if (targetSheet) {
+      return targetSheet.properties.sheetId;
+    } else {
+      console.warn(`Sheet "${dateTabName}" not found. Available sheets:`, data.sheets?.map(s => s.properties.title) || []);
+      return null;
+    }
+  } catch (error) {
+    console.error('Error fetching sheet information:', error);
+    return null;
+  }
+};
+
 // Utility function to format date for sheet name with fallbacks
 const formatDateForSheetName = (dateString) => {
   const date = new Date(dateString);
@@ -187,6 +227,12 @@ const fetchSheetData = async (spreadsheetId, range, retries = 3) => {
   const encodedRange = encodeURIComponent(range);
   const url = `${GOOGLE_SHEETS_BASE_URL}/${spreadsheetId}/values/${encodedRange}?key=${GOOGLE_SHEETS_API_KEY}`;
   
+  console.log(`🔍 fetchSheetData Debug:`);
+  console.log(`  - Spreadsheet ID: ${spreadsheetId}`);
+  console.log(`  - Range: ${range}`);
+  console.log(`  - Encoded Range: ${encodedRange}`);
+  console.log(`  - URL: ${url.replace(GOOGLE_SHEETS_API_KEY, 'API_KEY_HIDDEN')}`);
+  
   // Use CORS proxy to avoid CORS issues
   const corsProxies = [
     `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -207,6 +253,9 @@ const fetchSheetData = async (spreadsheetId, range, retries = 3) => {
     
     try {
       const response = await fetch(currentProxyUrl);
+      
+      console.log(`  - Response status: ${response.status}`);
+      console.log(`  - Response headers:`, Object.fromEntries(response.headers.entries()));
       
       if (response.status === 429) {
         // Rate limited - wait before retrying
@@ -233,13 +282,20 @@ const fetchSheetData = async (spreadsheetId, range, retries = 3) => {
       
       let data = await response.json();
       
+      console.log(`  - Raw response data:`, data);
+      
       // Handle different proxy response formats
       if (isAllOrigins && data.contents) {
         // AllOrigins wraps the response in a 'contents' field
         data = JSON.parse(data.contents);
+        console.log(`  - Parsed AllOrigins data:`, data);
       }
       
-      return data.values || [];
+      const result = data.values || [];
+      console.log(`  - Final result:`, result);
+      console.log(`  - Result length: ${result.length}`);
+      
+      return result;
     } catch (error) {
       // Don't retry on 400 errors - they're usually permanent issues
       if (error.message.includes('Bad Request') || error.message.includes('400')) {
@@ -727,11 +783,8 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
     const dataRows = data.slice(1);
     
     // Get target date ranges for different metrics
-    const defaultTargetDates = getDateRange(date, 30); // Last 30 days for most metrics
-    const july16TargetDates = getDateRangeFromStart('2025-07-16', date); // From July 16 onwards
-    
+    const defaultTargetDates = getDateRange(date, 30); // Last 30 days for all metrics
     const defaultTargetDateSet = new Set(defaultTargetDates);
-    const july16TargetDateSet = new Set(july16TargetDates);
     
     const trendlines = {
       totalChatsData: [],
@@ -758,9 +811,9 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
         rowObj[header] = row[index] || '';
       });
       
-      // Total Number of Chats Data - chats supposed to be handled by bot (from July 16 onwards)
+      // Total Number of Chats Data - chats supposed to be handled by bot (last 30 days)
       const totalChats = parseInt(rowObj['Total Number of Chats']) || 0;
-      if (totalChats > 0 && july16TargetDateSet.has(rowDate)) {
+      if (totalChats > 0 && defaultTargetDateSet.has(rowDate)) {
         trendlines.totalChatsData.push({
           date: rowDate,
           totalChats: totalChats,
@@ -789,10 +842,10 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
         });
       }
       
-      // Repetition Data - Parse "3.67%(9)" format (from July 16 onwards)
+      // Repetition Data - Parse "3.67%(9)" format (last 30 days)
       const repetitionRaw = rowObj['Repetition %'];
       const repetition = parseRepetitionPercentage(repetitionRaw);
-      if (repetition > 0 && july16TargetDateSet.has(rowDate)) {
+      if (repetition > 0 && defaultTargetDateSet.has(rowDate)) {
         trendlines.repetitionData.push({
           date: rowDate,
           chatsRep: repetition,
@@ -800,7 +853,7 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
         });
       }
       
-      // Delay Data - Parse "00:32 (0 msg > 4 Min)" format (from July 16 onwards)
+      // Delay Data - Parse "00:32 (0 msg > 4 Min)" format (last 30 days)
       const initialDelayRaw = rowObj['Avg Delay - Initial msg'];
       const nonInitialDelayRaw = rowObj['Avg Delay - non-initial msg'];
       
@@ -809,7 +862,7 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
       const init4m = parseCountFromParentheses(initialDelayRaw);
       const nonInit4m = parseCountFromParentheses(nonInitialDelayRaw);
       
-      if ((avgDelayInit > 0 || avgDelayNon > 0 || init4m >= 0 || nonInit4m >= 0) && july16TargetDateSet.has(rowDate)) {
+      if ((avgDelayInit > 0 || avgDelayNon > 0 || init4m >= 0 || nonInit4m >= 0) && defaultTargetDateSet.has(rowDate)) {
         trendlines.delayData.push({
           date: rowDate,
           avgDelayInit: avgDelayInit,
@@ -862,38 +915,55 @@ export const fetchTrendlines = async (department, date, subDepartment = 'All') =
       // Cost Data - Parse "$32 (Last 30 days: $1,670)" format (last 30 days)
       const costRaw = rowObj['Cost'];
       if (costRaw && costRaw.trim() !== '' && costRaw !== 'N/A' && defaultTargetDateSet.has(rowDate)) {
-        const parseCostData = (costString) => {
+        const parseCostData = (costString, department) => {
           if (!costString) return { dailyCost: 0, last30DaysCost: null };
           
           // Remove $ signs and clean up
           const cleanCost = costString.replace(/\$/g, '').trim();
           
           // Check if it contains last 30 days data
-          const match = cleanCost.match(/^(\d+(?:,\d{3})*(?:\.\d{2})?)\s*\(Last 30 days:\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\)$/);
+          // Handle AT Filipina format: "For all MaidsAT chatbots: $52 (Last 30 days: $1652)"
+          if (department === 'AT Filipina') {
+            const atFilipinaMatch = cleanCost.match(/For all MaidsAT chatbots:\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\s*\(Last 30 days:\s*\$?(\d+(?:,\d{3})*(?:\.\d{2})?)\)/);
+            if (atFilipinaMatch) {
+              const dailyCost = parseFloat(atFilipinaMatch[1].replace(/,/g, '')) || 0;
+              const last30DaysCost = parseFloat(atFilipinaMatch[2].replace(/,/g, '')) || 0;
+              return { dailyCost, last30DaysCost };
+            }
+          }
           
-          if (match) {
+          // Handle standard format: "$32 (Last 30 days: $1,670)"
+          const standardMatch = cleanCost.match(/^(\d+(?:,\d{3})*(?:\.\d{2})?)\s*\(Last 30 days:\s*(\d+(?:,\d{3})*(?:\.\d{2})?)\)$/);
+          
+          if (standardMatch) {
             // Format: "$32 (Last 30 days: $1,670)"
-            const dailyCost = parseFloat(match[1].replace(/,/g, '')) || 0;
-            const last30DaysCost = parseFloat(match[2].replace(/,/g, '')) || 0;
+            const dailyCost = parseFloat(standardMatch[1].replace(/,/g, '')) || 0;
+            const last30DaysCost = parseFloat(standardMatch[2].replace(/,/g, '')) || 0;
             return { dailyCost, last30DaysCost };
-          } else {
-            // Format: "$32" (no last 30 days data)
-            const dailyCost = parseFloat(cleanCost.replace(/,/g, '')) || 0;
+          }
+          
+          // Handle simple format: "$52" (no last 30 days data)
+          const simpleMatch = cleanCost.match(/^(\d+(?:,\d{3})*(?:\.\d{2})?)$/);
+          if (simpleMatch) {
+            const dailyCost = parseFloat(simpleMatch[1].replace(/,/g, '')) || 0;
             return { dailyCost, last30DaysCost: null };
           }
+          
+          // Default fallback
+          return { dailyCost: 0, last30DaysCost: null };
         };
         
-        // Bot Handled Data - Parse "Handling %" field (from July 16 onwards)
+        // Bot Handled Data - Parse "Handling %" field (last 30 days)
         const botHandledPercentage = parsePercentage(rowObj['Handling %']);
         
-        if (botHandledPercentage > 0 && july16TargetDateSet.has(rowDate)) {
+        if (botHandledPercentage > 0 && defaultTargetDateSet.has(rowDate)) {
           trendlines.botHandledData.push({
             date: rowDate,
             botHandled: botHandledPercentage
           });
         }
         
-        const costData = parseCostData(costRaw);
+        const costData = parseCostData(costRaw, department);
         
         if (costData.dailyCost > 0 || costData.last30DaysCost > 0) {
           trendlines.costData.push({
@@ -1903,6 +1973,16 @@ export const fetchDashboardData = async (department, date, config = {}) => {
       fetchTasks.push(fetchLossOfInterest(department, date));
     }
     
+    // Fetch AT Filipina Loss of Interest data specifically for AT Filipina department
+    let atFilipinaLossOfInterest = { status: 'fulfilled', value: [] };
+    if (department === 'AT Filipina') {
+      console.log(`🔍 AT Filipina department detected - adding Loss of Interest fetch task`);
+      console.log(`📅 Date being used: ${date}`);
+      fetchTasks.push(fetchATFilipinaLossOfInterest(date));
+    } else {
+      console.log(`ℹ️ Department ${department} is not AT Filipina - skipping Loss of Interest fetch`);
+    }
+    
     const results = await Promise.allSettled(fetchTasks);
     
     // Map results back to expected structure
@@ -1918,6 +1998,11 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     
     const funnel = shouldFetchFunnel ? results[resultIndex++] : { status: 'fulfilled', value: [] };
     const lossOfInterest = shouldFetchLossOfInterest ? results[resultIndex++] : { status: 'fulfilled', value: { headers: [], data: [] } };
+    
+    // Handle AT Filipina Loss of Interest data
+    if (department === 'AT Filipina') {
+      atFilipinaLossOfInterest = results[resultIndex++];
+    }
 
     // Process results and handle any failures
     const result = {
@@ -1925,6 +2010,7 @@ export const fetchDashboardData = async (department, date, config = {}) => {
       snapshot: snapshot.status === 'fulfilled' ? snapshot.value : {},
       funnel: funnel.status === 'fulfilled' ? funnel.value : [],
       lossOfInterest: lossOfInterest.status === 'fulfilled' ? lossOfInterest.value : { headers: [], data: [] },
+      atFilipinaLossOfInterest: atFilipinaLossOfInterest.status === 'fulfilled' ? atFilipinaLossOfInterest.value : [],
       trendlines: trendlines.status === 'fulfilled' ? trendlines.value : {
         totalChatsData: [],
         cvrData: [],
@@ -1953,6 +2039,13 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     if (ruleBreaking.status === 'rejected') console.warn('Failed to fetch rule breaking:', ruleBreaking.reason);
     if (transferIntervention.status === 'rejected') console.warn('Failed to fetch transfer intervention:', transferIntervention.reason);
     if (policyEscalation.status === 'rejected') console.warn('Failed to fetch policy escalation:', policyEscalation.reason);
+    if (atFilipinaLossOfInterest.status === 'rejected') console.warn('Failed to fetch AT Filipina loss of interest:', atFilipinaLossOfInterest.reason);
+
+    console.log(`📊 AT Filipina Loss of Interest fetch result:`, atFilipinaLossOfInterest);
+    if (department === 'AT Filipina') {
+      console.log(`📊 AT Filipina Loss of Interest data:`, atFilipinaLossOfInterest.value);
+      console.log(`📊 AT Filipina Loss of Interest status:`, atFilipinaLossOfInterest.status);
+    }
 
     return result;
   } catch (error) {
@@ -2584,4 +2677,559 @@ export const navigateToDoctorsClientsSuspectingAISheet = async (department, date
     console.error('Error navigating to Doctors Clients Suspecting AI sheet:', error);
     alert('Error opening Doctors Clients Suspecting AI sheet. Please try again.');
   }
+};
+
+// Function to fetch Loss of Interest data for AT Filipina
+export const fetchATFilipinaLossOfInterest = async (date) => {
+  try {
+    const spreadsheetId = '1GJXyFqiM1gn-jbWVEVI3TfIrFU3Ld8BQOPQFb-gMDaE';
+    const sheetName = `${formatDateForSheetName(date)}-summary`;
+    
+    console.log(`=== AT FILIPINA LOSS OF INTEREST DEBUG ===`);
+    console.log(`Date parameter received: ${date}`);
+    console.log(`Formatted date: ${formatDateForSheetName(date)}`);
+    console.log(`Target sheet name: ${sheetName}`);
+    console.log(`Spreadsheet ID: ${spreadsheetId}`);
+    console.log(`Google Sheets API Key available: ${!!GOOGLE_SHEETS_API_KEY}`);
+    
+    // First, let's check what sheets are available in this spreadsheet
+    try {
+      console.log(`Checking available sheets in spreadsheet...`);
+      const spreadsheetInfo = await fetch(`${GOOGLE_SHEETS_BASE_URL}/${spreadsheetId}?key=${GOOGLE_SHEETS_API_KEY}`);
+      
+      if (!spreadsheetInfo.ok) {
+        console.error(`Failed to fetch spreadsheet info: ${spreadsheetInfo.status} ${spreadsheetInfo.statusText}`);
+        console.error(`Response headers:`, Object.fromEntries(spreadsheetInfo.headers.entries()));
+        return [];
+      }
+      
+      const spreadsheetData = await spreadsheetInfo.json();
+      console.log(`Spreadsheet metadata:`, spreadsheetData);
+      
+      if (spreadsheetData.sheets) {
+        console.log(`Available sheets in spreadsheet:`);
+        spreadsheetData.sheets.forEach((sheet, index) => {
+          console.log(`  ${index + 1}. "${sheet.properties.title}" (ID: ${sheet.properties.sheetId})`);
+        });
+        
+        // Check if our target sheet exists
+        const targetSheet = spreadsheetData.sheets.find(sheet => sheet.properties.title === sheetName);
+        if (targetSheet) {
+          console.log(`✅ Target sheet "${sheetName}" found!`);
+        } else {
+          console.log(`❌ Target sheet "${sheetName}" NOT found!`);
+          console.log(`Available sheet names:`, spreadsheetData.sheets.map(s => s.properties.title));
+          
+          // Try to find similar sheet names
+          const similarSheets = spreadsheetData.sheets.filter(sheet => 
+            sheet.properties.title.includes(formatDateForSheetName(date)) ||
+            sheet.properties.title.includes(date)
+          );
+          if (similarSheets.length > 0) {
+            console.log(`🔍 Found similar sheets:`, similarSheets.map(s => s.properties.title));
+          }
+        }
+      } else {
+        console.log(`No sheets information found in spreadsheet metadata`);
+      }
+    } catch (metadataError) {
+      console.error(`Error fetching spreadsheet metadata:`, metadataError);
+    }
+    
+    console.log(`Attempting to fetch data from sheet: ${sheetName}`);
+    
+    // Try different approaches to fetch data
+    let data = null;
+    let fetchError = null;
+    
+    // Approach 1: Try the exact sheet name
+    try {
+      console.log(`🔄 Attempt 1: Fetching from exact sheet name "${sheetName}"`);
+      data = await fetchSheetData(spreadsheetId, `${sheetName}!A:Z`);
+      console.log(`✅ Success with exact sheet name`);
+    } catch (error) {
+      console.log(`❌ Failed with exact sheet name:`, error.message);
+      fetchError = error;
+      
+      // Approach 2: Try without the summary suffix
+      try {
+        const alternativeSheetName = formatDateForSheetName(date);
+        console.log(`🔄 Attempt 2: Fetching from alternative sheet name "${alternativeSheetName}"`);
+        data = await fetchSheetData(spreadsheetId, `${alternativeSheetName}!A:Z`);
+        console.log(`✅ Success with alternative sheet name`);
+      } catch (error2) {
+        console.log(`❌ Failed with alternative sheet name:`, error2.message);
+        
+        // Approach 3: Try with different date formats
+        try {
+          const dateObj = new Date(date);
+          const alternativeFormats = [
+            `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}-summary`,
+            `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear()}-summary`,
+            `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}-summary`
+          ];
+          
+          console.log(`🔄 Attempt 3: Trying alternative date formats:`, alternativeFormats);
+          
+          for (const altFormat of alternativeFormats) {
+            try {
+              console.log(`  Trying format: "${altFormat}"`);
+              data = await fetchSheetData(spreadsheetId, `${altFormat}!A:Z`);
+              console.log(`✅ Success with format "${altFormat}"`);
+              break;
+            } catch (formatError) {
+              console.log(`  ❌ Failed with format "${altFormat}":`, formatError.message);
+            }
+          }
+        } catch (error3) {
+          console.log(`❌ All alternative approaches failed`);
+        }
+      }
+    }
+    
+    if (!data) {
+      console.log(`❌ Could not fetch data from any sheet variation`);
+      console.log(`Last fetch error:`, fetchError);
+      return [];
+    }
+    
+    console.log(`Raw data received:`, data);
+    console.log(`Data length: ${data ? data.length : 'undefined'}`);
+    
+    if (!data || data.length === 0) {
+      console.log('No AT Filipina Loss of Interest data found');
+      return [];
+    }
+    
+    // Skip the header row and convert to objects
+    const headers = data[0];
+    const rows = data.slice(1);
+    
+    console.log(`Headers:`, headers);
+    console.log(`Data rows:`, rows);
+    console.log(`Number of data rows: ${rows.length}`);
+    
+    // Check if headers are valid
+    if (!headers || headers.length === 0) {
+      console.log(`❌ No valid headers found in first row`);
+      return [];
+    }
+    
+    const lossOfInterestData = rows.map(row => {
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = row[index] || '';
+      });
+      return obj;
+    }).filter(item => {
+      // Filter out completely empty rows
+      return Object.values(item).some(value => value && value.toString().trim() !== '');
+    });
+    
+    console.log('AT Filipina Loss of Interest data processed:', lossOfInterestData);
+    console.log(`Final processed data length: ${lossOfInterestData.length}`);
+    console.log(`=== END DEBUG ===`);
+    
+    return lossOfInterestData;
+    
+  } catch (error) {
+    console.error('Error fetching AT Filipina Loss of Interest data:', error);
+    console.error('Full error details:', {
+      message: error.message,
+      stack: error.stack,
+      date: date,
+      spreadsheetId: '1GJXyFqiM1gn-jbWVEVI3TfIrFU3Ld8BQOPQFb-gMDaE'
+    });
+    return [];
+  }
+};
+
+// Fetch LLM Cost Analysis data
+export const fetchLLMCostData = async (date) => {
+  try {
+    const spreadsheetId = '1RPJL0yKqCH2LxT2fqJ-LJzJCcHRsbrnD0ryy0jgqN6w';
+    const sheetName = `aggregate ${date}`;
+
+    console.log(`Fetching LLM cost data for sheet: ${sheetName}`);
+
+    // Fetch data from the sheet (extended range to include columns up to BH for detailed chatbot data)
+    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A:BH`);
+
+    if (data.length === 0) {
+      throw new Error('No data found in the sheet');
+    }
+
+    console.log(`LLM cost raw data (first 10 rows):`, data.slice(0, 10));
+
+    // Helper function to check if value is valid (not empty, not "-", not null)
+    const isValidValue = (value) => {
+      return value && value !== '-' && value.toString().trim() !== '';
+    };
+
+    // Helper function to parse currency values
+    const parseCurrencyValue = (value) => {
+      if (!value) return 0;
+      // Remove currency symbols, commas, and convert to number
+      const cleanValue = value.toString().replace(/[$,]/g, '');
+      return parseFloat(cleanValue) || 0;
+    };
+
+    // Parse Total Cost data (columns A, B, C starting from row 3, headers in row 2)
+    const totalCostData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[0])) {
+        const actualCost = isValidValue(row[1]) ? parseCurrencyValue(row[1]) : null;
+        const forecastedCost = isValidValue(row[2]) ? parseCurrencyValue(row[2]) : null;
+
+        // Only add if at least one cost value is valid
+        if (actualCost !== null || forecastedCost !== null) {
+          totalCostData.push({
+            date: row[0],
+            actualCost: actualCost,
+            forecastedCost: forecastedCost
+          });
+        }
+      }
+    }
+
+    // Parse Model data (columns E, F, G starting from row 3, headers in row 2)
+    const modelData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[4]) && isValidValue(row[5]) && isValidValue(row[6])) {
+        modelData.push({
+          model: row[4],
+          cost: parseCurrencyValue(row[5]),
+          percentage: parseFloat(row[6]) || 0
+        });
+      }
+    }
+
+    // Parse Category data (columns H, I, J starting from row 3, headers in row 2)
+    const categoryData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[7]) && isValidValue(row[8]) && isValidValue(row[9])) {
+        categoryData.push({
+          category: row[7],
+          cost: parseCurrencyValue(row[8]),
+          percentage: parseFloat(row[9]) || 0
+        });
+      }
+    }
+
+    // Parse Detailed Model data (columns M, N, O, P, Q starting from row 3, headers in row 2)
+    // Headers: Date, OpenAI, Anthropic, Gemini, Other Models
+    const detailedModelData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[12])) { // Column M (index 12) - Date
+        detailedModelData.push({
+          date: row[12],
+          openai: isValidValue(row[13]) ? parseCurrencyValue(row[13]) : null, // Column N
+          anthropic: isValidValue(row[14]) ? parseCurrencyValue(row[14]) : null, // Column O
+          gemini: isValidValue(row[15]) ? parseCurrencyValue(row[15]) : null, // Column P
+          otherModels: isValidValue(row[16]) ? parseCurrencyValue(row[16]) : null // Column Q
+        });
+      }
+    }
+
+    // Parse Detailed Category data (columns U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG starting from row 3, headers in row 2)
+    // Headers: Date, CC Resolvers, MV Resolvers, MV Sales, CC Sales, Delighters, Doctors, Maids At, Other Chatbots, Developers, ERP, Analytics, Testing
+    const detailedCategoryData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[20])) { // Column U (index 20) - Date
+        detailedCategoryData.push({
+          date: row[20],
+          ccResolvers: isValidValue(row[21]) ? parseCurrencyValue(row[21]) : null, // Column V
+          mvResolvers: isValidValue(row[22]) ? parseCurrencyValue(row[22]) : null, // Column W
+          mvSales: isValidValue(row[23]) ? parseCurrencyValue(row[23]) : null, // Column X
+          ccSales: isValidValue(row[24]) ? parseCurrencyValue(row[24]) : null, // Column Y
+          delighters: isValidValue(row[25]) ? parseCurrencyValue(row[25]) : null, // Column Z
+          doctors: isValidValue(row[26]) ? parseCurrencyValue(row[26]) : null, // Column AA (index 26)
+          maidsAt: isValidValue(row[27]) ? parseCurrencyValue(row[27]) : null, // Column AB (index 27)
+          otherChatbots: isValidValue(row[28]) ? parseCurrencyValue(row[28]) : null, // Column AC (index 28)
+          developers: isValidValue(row[29]) ? parseCurrencyValue(row[29]) : null, // Column AD (index 29)
+          erp: isValidValue(row[30]) ? parseCurrencyValue(row[30]) : null, // Column AE (index 30)
+          analytics: isValidValue(row[31]) ? parseCurrencyValue(row[31]) : null, // Column AF (index 31)
+          testing: isValidValue(row[32]) ? parseCurrencyValue(row[32]) : null // Column AG (index 32)
+        });
+      }
+    }
+
+    // Parse Detailed Chatbot data from multiple column ranges
+
+    // Sales data (columns AK, AL, AM starting from row 3, headers in row 2)
+    // Headers: Date, CC Sales, MV Sales
+    const salesData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[36])) { // Column AK (index 36) - Date
+        salesData.push({
+          date: row[36],
+          ccSales: isValidValue(row[37]) ? parseCurrencyValue(row[37]) : null, // Column AL
+          mvSales: isValidValue(row[38]) ? parseCurrencyValue(row[38]) : null  // Column AM
+        });
+      }
+    }
+
+    // Resolvers data (columns AR, AS, AT starting from row 3, headers in row 2)
+    // Headers: Date, CC Resolvers, MV Resolvers
+    const resolversData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[43])) { // Column AR (index 43) - Date
+        resolversData.push({
+          date: row[43],
+          ccResolvers: isValidValue(row[44]) ? parseCurrencyValue(row[44]) : null, // Column AS
+          mvResolvers: isValidValue(row[45]) ? parseCurrencyValue(row[45]) : null  // Column AT
+        });
+      }
+    }
+
+    // Medical data (columns AY, AZ, BA starting from row 3, headers in row 2)
+    // Headers: Date, Doctors, Maids At
+    const medicalData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[50])) { // Column AY (index 50) - Date
+        medicalData.push({
+          date: row[50],
+          doctors: isValidValue(row[51]) ? parseCurrencyValue(row[51]) : null, // Column AZ
+          maidsAt: isValidValue(row[52]) ? parseCurrencyValue(row[52]) : null  // Column BA
+        });
+      }
+    }
+
+    // Other chatbots data (columns BF, BG, BH starting from row 3, headers in row 2)
+    // Headers: Date, Delighters, Other Chatbots
+    const otherChatbotsData = [];
+    for (let i = 2; i < data.length; i++) {
+      const row = data[i];
+      if (isValidValue(row[57])) { // Column BF (index 57) - Date
+        otherChatbotsData.push({
+          date: row[57],
+          delighters: isValidValue(row[58]) ? parseCurrencyValue(row[58]) : null, // Column BG
+          otherChatbots: isValidValue(row[59]) ? parseCurrencyValue(row[59]) : null // Column BH
+        });
+      }
+    }
+
+    const detailedChatbotData = {
+      sales: salesData,
+      resolvers: resolversData,
+      medical: medicalData,
+      otherChatbots: otherChatbotsData
+    };
+
+    console.log('Parsed LLM cost data:', {
+      totalCost: totalCostData,
+      modelData: modelData,
+      categoryData: categoryData,
+      detailedModelData: detailedModelData,
+      detailedCategoryData: detailedCategoryData,
+      detailedChatbotData: detailedChatbotData
+    });
+
+    return {
+      totalCost: totalCostData,
+      modelData: modelData,
+      categoryData: categoryData,
+      detailedModelData: detailedModelData,
+      detailedCategoryData: detailedCategoryData,
+      detailedChatbotData: detailedChatbotData
+    };
+
+  } catch (error) {
+    console.error('Error fetching LLM cost data:', error);
+    throw error;
+  }
+};
+
+// Fetch LLM Cost Summary data from Page 2 tab
+export const fetchLLMCostSummary = async (date) => {
+  try {
+    const spreadsheetId = '1RPJL0yKqCH2LxT2fqJ-LJzJCcHRsbrnD0ryy0jgqN6w';
+    const sheetName = `Page 2 ${date}`;
+
+    console.log(`Fetching LLM cost summary for sheet: ${sheetName}`);
+
+    // Fetch specific cells containing the summary data
+    const ranges = [
+      `${sheetName}!F7`,  // Total Cost For Today
+      `${sheetName}!B10`, // Total Cost For This Month
+      `${sheetName}!J10`, // Total Cost For Last 30 Days
+      `${sheetName}!B13`, // Total Cost For Last Month
+      `${sheetName}!J13`  // Forecasted Cost For This Month
+    ];
+
+    // Fetch all ranges in a single batch request
+    const batchData = await Promise.all(
+      ranges.map(range => fetchSheetData(spreadsheetId, range))
+    );
+
+    // Helper function to parse cost value with percentage
+    const parseCostWithPercentage = (value) => {
+      if (!value || value === '-') {
+        return { cost: 0, percentage: null, trend: null };
+      }
+
+      const valueStr = value.toString().trim();
+
+      // Check if value contains percentage
+      const percentageMatch = valueStr.match(/\(([+-]?\d+\.?\d*)%\)/);
+      let percentage = null;
+      let trend = null;
+      let costStr = valueStr;
+
+      if (percentageMatch) {
+        percentage = parseFloat(percentageMatch[1]);
+        trend = percentage >= 0 ? 'increase' : 'decrease';
+        // Remove percentage part to get cost
+        costStr = valueStr.replace(/\s*\([+-]?\d+\.?\d*%\)/, '').trim();
+      }
+
+      // Parse cost value (remove $ and commas)
+      const cost = parseFloat(costStr.replace(/[$,]/g, '')) || 0;
+
+      return { cost, percentage, trend };
+    };
+
+    // Extract and parse the values
+    const summaryData = {
+      totalCostToday: parseCostWithPercentage(batchData[0][0]?.[0]),
+      totalCostThisMonth: parseCostWithPercentage(batchData[1][0]?.[0]),
+      totalCostLast30Days: parseCostWithPercentage(batchData[2][0]?.[0]),
+      totalCostLastMonth: parseCostWithPercentage(batchData[3][0]?.[0]),
+      forecastedCostThisMonth: parseCostWithPercentage(batchData[4][0]?.[0])
+    };
+
+    console.log('Parsed LLM cost summary:', summaryData);
+
+    return summaryData;
+  } catch (error) {
+    console.error('Error fetching LLM cost summary:', error);
+    return {
+      totalCostToday: { cost: 0, percentage: null, trend: null },
+      totalCostThisMonth: { cost: 0, percentage: null, trend: null },
+      totalCostLast30Days: { cost: 0, percentage: null, trend: null },
+      totalCostLastMonth: { cost: 0, percentage: null, trend: null },
+      forecastedCostThisMonth: { cost: 0, percentage: null, trend: null }
+    };
+  }
+};
+
+// Fetch LLM Cost table data from Page 3 tab
+export const fetchLLMCostTable = async (date) => {
+  try {
+    const spreadsheetId = '1RPJL0yKqCH2LxT2fqJ-LJzJCcHRsbrnD0ryy0jgqN6w';
+    const sheetName = `Page 3 ${date}`;
+
+    console.log(`Fetching LLM cost table for sheet: ${sheetName}`);
+
+    // Fetch data from the sheet starting from row 3 (headers) and row 4 (data)
+    const data = await fetchSheetData(spreadsheetId, `${sheetName}!A3:O`);
+
+    if (!data || data.length < 2) {
+      console.log('No LLM cost table data found');
+      return { headers: [], rows: [] };
+    }
+
+    // Helper function to parse currency values
+    const parseCurrencyValue = (value) => {
+      if (!value || value === '-') return 0;
+      const cleanValue = value.toString().replace(/[$,]/g, '');
+      return parseFloat(cleanValue) || 0;
+    };
+
+    // Extract headers from row 3 (index 0)
+    const headers = data[0] || [];
+
+    // Extract and parse data rows starting from row 4 (index 1)
+    const rows = [];
+    let currentProvider = '';
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (row && (row[0] || row[1])) { // Check if Provider or Model exists
+        // If there's a provider name, update current provider
+        if (row[0] && row[0].trim() !== '') {
+          currentProvider = row[0].trim();
+        }
+
+        const parsedRow = {
+          provider: row[0] || '', // Keep original provider value (empty for grouped rows)
+          currentProvider: currentProvider, // Track the current provider group
+          model: row[1] || '',
+          ccResolvers: row[2] || '',
+          mvResolvers: row[3] || '',
+          mvSales: row[4] || '',
+          ccSales: row[5] || '',
+          delighters: row[6] || '',
+          doctors: row[7] || '',
+          maidsAt: row[8] || '',
+          otherChatbots: row[9] || '',
+          devs: row[10] || '',
+          erpUsage: row[11] || '',
+          analytics: row[12] || '',
+          testing: row[13] || '',
+          total: row[14] || '',
+          isTotal: row[0] === 'Total' || row[1] === 'Total',
+          isPrompts: row[0] === 'Prompts Input Tokens' || row[1] === 'Prompts Input Tokens'
+        };
+
+        // Debug logging for special rows
+        if (parsedRow.isTotal || parsedRow.isPrompts || row[1] === 'Total' || row[1] === 'Prompts Input Tokens') {
+          console.log(`🔍 Parsing special row:`, {
+            rowIndex: i,
+            provider: row[0],
+            model: row[1],
+            isTotal: parsedRow.isTotal,
+            isPrompts: parsedRow.isPrompts,
+            fullRow: row
+          });
+        }
+        rows.push(parsedRow);
+      }
+    }
+
+    // Force the last two rows to have the correct labels
+    if (rows.length >= 2) {
+      const lastTwoRows = rows.slice(-2);
+
+      // Second-to-last row: Force to be "Total"
+      if (lastTwoRows[0]) {
+        lastTwoRows[0].provider = 'Total';
+        lastTwoRows[0].model = 'Total';
+        lastTwoRows[0].isTotal = true;
+        lastTwoRows[0].isPrompts = false;
+        console.log('🔧 Forced second-to-last row to be Total:', lastTwoRows[0]);
+      }
+
+      // Last row: Force to be "Prompts Input Tokens"
+      if (lastTwoRows[1]) {
+        lastTwoRows[1].provider = 'Prompts Input Tokens';
+        lastTwoRows[1].model = 'Prompts Input Tokens';
+        lastTwoRows[1].isTotal = false;
+        lastTwoRows[1].isPrompts = true;
+        console.log('🔧 Forced last row to be Prompts Input Tokens:', lastTwoRows[1]);
+      }
+    }
+
+    console.log('📊 Parsed LLM cost table:', { headers, rows });
+
+    return { headers, rows };
+  } catch (error) {
+    console.error('Error fetching LLM cost table:', error);
+    return { headers: [], rows: [] };
+  }
+};
+
+export default {
+  fetchSheetData,
+  fetchLLMCostData,
+  fetchLLMCostSummary,
+  fetchLLMCostTable
 };
