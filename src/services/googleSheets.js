@@ -655,8 +655,13 @@ export const fetchConversionFunnel = async (department, date) => {
 // Fetch loss of interest data
 export const fetchLossOfInterest = async (department, date) => {
   try {
+    console.log(`🔍 fetchLossOfInterest called for department: ${department}, date: ${date}`);
+    
     const spreadsheetId = SHEET_CONFIG.lossOfInterest.spreadsheetIds[department];
     const sheetName = formatDateForSheetName(date);
+    
+    console.log(`  - spreadsheetId: ${spreadsheetId}`);
+    console.log(`  - sheetName: ${sheetName}`);
     
     // Fetch header rows (first 4 lines)
     const headerData = await fetchSheetData(
@@ -664,11 +669,15 @@ export const fetchLossOfInterest = async (department, date) => {
       `${sheetName}!A1:M4`
     );
     
+    console.log(`  - headerData fetched:`, headerData);
+    
     // Read from row 5 onwards (A5:M) to get the data rows
     const data = await fetchSheetData(
       spreadsheetId,
       `${sheetName}!A5:M`
     );
+    
+    console.log(`  - data rows fetched:`, data);
     
     if (data.length === 0) return { headers: headerData || [], data: [] };
     
@@ -676,10 +685,13 @@ export const fetchLossOfInterest = async (department, date) => {
     const columnHeaders = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M'];
     const dataObjects = convertToObjects(data, columnHeaders);
     
-    return {
+    const result = {
       headers: headerData || [],
       data: dataObjects
     };
+    
+    console.log(`  - returning result:`, result);
+    return result;
   } catch (error) {
     console.error('Error fetching loss of interest:', error);
     return { headers: [], data: [] };
@@ -1969,8 +1981,18 @@ export const fetchDashboardData = async (department, date, config = {}) => {
     // Only fetch loss of interest if it's enabled and department is allowed
     const shouldFetchLossOfInterest = config.lossOfInterestTable?.enabled === true && 
       (!config.lossOfInterestTable?.allowedDepartments || config.lossOfInterestTable.allowedDepartments.includes(department));
+    
+    console.log(`🔍 fetchDashboardData - Loss of Interest check:`);
+    console.log(`  - department: ${department}`);
+    console.log(`  - config.lossOfInterestTable?.enabled: ${config.lossOfInterestTable?.enabled}`);
+    console.log(`  - config.lossOfInterestTable?.allowedDepartments:`, config.lossOfInterestTable?.allowedDepartments);
+    console.log(`  - shouldFetchLossOfInterest: ${shouldFetchLossOfInterest}`);
+    
     if (shouldFetchLossOfInterest) {
+      console.log(`  - Adding fetchLossOfInterest task for ${department}`);
       fetchTasks.push(fetchLossOfInterest(department, date));
+    } else {
+      console.log(`  - Skipping fetchLossOfInterest for ${department}`);
     }
     
     // Fetch AT Filipina Loss of Interest data specifically for AT Filipina department
@@ -2029,6 +2051,11 @@ export const fetchDashboardData = async (department, date, config = {}) => {
       transferIntervention: transferIntervention.status === 'fulfilled' ? transferIntervention.value : [],
       policyEscalation: policyEscalation.status === 'fulfilled' ? policyEscalation.value : []
     };
+    
+    console.log(`🔍 fetchDashboardData - Final result structure:`);
+    console.log(`  - lossOfInterest:`, result.lossOfInterest);
+    console.log(`  - lossOfInterest.headers:`, result.lossOfInterest.headers);
+    console.log(`  - lossOfInterest.data:`, result.lossOfInterest.data);
 
     // Log any failures
     if (definitions.status === 'rejected') console.warn('Failed to fetch definitions:', definitions.reason);

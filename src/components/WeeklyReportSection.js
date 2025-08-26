@@ -37,21 +37,56 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
     return null;
   }
 
-  // Calculate date ranges
-    const endDate = new Date(new Date(selectedDate).getTime() + 6 * 24 * 60 * 60 * 1000);
-    const currentWeekRange = `${formatDisplayDate(selectedDate)} — ${formatDisplayDate(endDate.toISOString().split('T')[0])}`;
-    
-    const prev1WeekStart = new Date(new Date(selectedDate).getTime() - 7 * 24 * 60 * 60 * 1000);
-    const prev1WeekEnd = new Date(new Date(selectedDate).getTime() - 1 * 24 * 60 * 60 * 1000);
-    const prev1WeekRange = `${formatDisplayDate(prev1WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(prev1WeekEnd.toISOString().split('T')[0])}`;
-    
-    const prev2WeekStart = new Date(new Date(selectedDate).getTime() - 14 * 24 * 60 * 60 * 1000);
-    const prev2WeekEnd = new Date(new Date(selectedDate).getTime() - 8 * 24 * 60 * 60 * 1000);
-    const prev2WeekRange = `${formatDisplayDate(prev2WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(prev2WeekEnd.toISOString().split('T')[0])}`;
-    
-    const prev3WeekStart = new Date(new Date(selectedDate).getTime() - 21 * 24 * 60 * 60 * 1000);
-    const prev3WeekEnd = new Date(new Date(selectedDate).getTime() - 15 * 24 * 60 * 60 * 1000);
-    const prev3WeekRange = `${formatDisplayDate(prev3WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(prev3WeekEnd.toISOString().split('T')[0])}`;
+  // Get headers and data from dashboardData for loss of interest
+  const lossOfInterestData = dashboardData.lossOfInterest || {};
+  const headers = lossOfInterestData.headers || [];
+  
+  // Debug logging
+  console.log('🔍 WeeklyReportSection Debug:');
+  console.log('  - selectedDepartment:', selectedDepartment);
+  console.log('  - lossOfInterestData:', lossOfInterestData);
+  console.log('  - headers:', headers);
+  console.log('  - headers[0]:', headers[0]);
+  console.log('  - headers[2]:', headers[2]);
+  
+  // Extract title and date ranges from sheet headers
+  const sheetTitle = headers[0] && headers[0][0] ? headers[0][0] : `${selectedDepartment} -- Loss of interest Report`;
+  const prev1WeekRange = headers[2] && headers[2][5] ? headers[2][5] : ''; // F3
+  const prev2WeekRange = headers[2] && headers[2][7] ? headers[2][7] : ''; // H3
+  // Note: User specified H3 for both prev2WeekRange and prev3WeekRange, which seems like a typo
+  // Using I3 (index 8) as a reasonable alternative for prev3WeekRange
+  // TODO: Clarify with user which column should be used for prev3WeekRange
+  const prev3WeekRange = headers[2] && headers[2][9] ? headers[2][9] : '';
+
+  // Calculate current week range
+  const endDate = new Date(new Date(selectedDate).getTime() + 6 * 24 * 60 * 60 * 1000);
+  const currentWeekRange = headers[1] && headers[1][2] ? headers[1][2] : '';
+  
+  // Fallback date ranges if sheet headers are not available
+  const fallbackPrev1WeekStart = new Date(new Date(selectedDate).getTime() - 7 * 24 * 60 * 60 * 1000);
+  const fallbackPrev1WeekEnd = new Date(new Date(selectedDate).getTime() - 1 * 24 * 60 * 60 * 1000);
+  const fallbackPrev1WeekRange = `${formatDisplayDate(fallbackPrev1WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(fallbackPrev1WeekEnd.toISOString().split('T')[0])}`;
+  
+  const fallbackPrev2WeekStart = new Date(new Date(selectedDate).getTime() - 14 * 24 * 60 * 60 * 1000);
+  const fallbackPrev2WeekEnd = new Date(new Date(selectedDate).getTime() - 8 * 24 * 60 * 60 * 1000);
+  const fallbackPrev2WeekRange = `${formatDisplayDate(fallbackPrev2WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(fallbackPrev2WeekEnd.toISOString().split('T')[0])}`;
+  
+  const fallbackPrev3WeekStart = new Date(new Date(selectedDate).getTime() - 21 * 24 * 60 * 60 * 1000);
+  const fallbackPrev3WeekEnd = new Date(new Date(selectedDate).getTime() - 15 * 24 * 60 * 60 * 1000);
+  const fallbackPrev3WeekRange = `${formatDisplayDate(fallbackPrev3WeekStart.toISOString().split('T')[0])} — ${formatDisplayDate(fallbackPrev3WeekEnd.toISOString().split('T')[0])}`;
+  
+  // Use sheet data if available, otherwise use fallback calculations
+  const finalPrev1WeekRange = prev1WeekRange || fallbackPrev1WeekRange;
+  const finalPrev2WeekRange = prev2WeekRange || fallbackPrev2WeekRange;
+  const finalPrev3WeekRange = prev3WeekRange || fallbackPrev3WeekRange;
+  
+  console.log('  - sheetTitle:', sheetTitle);
+  console.log('  - prev1WeekRange (from sheet):', prev1WeekRange);
+  console.log('  - prev2WeekRange (from sheet):', prev2WeekRange);
+  console.log('  - prev3WeekRange (from sheet):', prev3WeekRange);
+  console.log('  - finalPrev1WeekRange:', finalPrev1WeekRange);
+  console.log('  - finalPrev2WeekRange:', finalPrev2WeekRange);
+  console.log('  - finalPrev3WeekRange:', finalPrev3WeekRange);
     
   // Mobile Card View for Complex Table Data
   const MobileWeeklyReportCard = ({ data, isCC }) => (
@@ -119,7 +154,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   {/* Previous Week 1 */}
                   <Box sx={{ mb: 2, p: 2, backgroundColor: alpha(theme.palette.info.main, 0.05), borderRadius: 1 }}>
                     <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-                      {prev1WeekRange}
+                      {finalPrev1WeekRange}
                     </Typography>
                     <Grid container spacing={1}>
                       <Grid item xs={6}>
@@ -140,7 +175,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   {/* Previous Week 2 */}
                   <Box sx={{ mb: 2, p: 2, backgroundColor: alpha(theme.palette.info.main, 0.05), borderRadius: 1 }}>
                     <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-                      {prev2WeekRange}
+                      {finalPrev2WeekRange}
                     </Typography>
                     <Grid container spacing={1}>
                       <Grid item xs={6}>
@@ -159,9 +194,9 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   </Box>
 
                   {/* Previous Week 3 */}
-                  <Box sx={{ mb: 2, p: 2, backgroundColor: alpha(theme.palette.info.main, 0.05), borderRadius: 1 }}>
+                  <Box sx={{ mb: 2, p: 1, backgroundColor: alpha(theme.palette.info.main, 0.05), borderRadius: 1 }}>
                     <Typography variant="body2" fontWeight={500} sx={{ mb: 1 }}>
-                      {prev3WeekRange}
+                      {finalPrev3WeekRange}
                     </Typography>
                     <Grid container spacing={1}>
                       <Grid item xs={6}>
@@ -299,18 +334,30 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
       <TableContainer 
         component={Paper} 
         sx={{ 
-          border: `1px solid ${alpha(theme.palette.divider, 0.2)}`,
+          border: `1px solid black`,
           '& .MuiTableCell-root': {
             border: `1px solid ${alpha(theme.palette.divider, 0.3)}`,
             fontSize: '0.75rem',
             padding: '8px 4px',
+          },
+          '& .MuiTableCell-root.bold-border': {
+            border: `1px solid black !important`
+          },
+          '& .MuiTableCell-root.column-border-left': {
+            borderLeft: `1px solid black !important`
+          },
+          '& .MuiTableCell-root.column-border-right': {
+            borderRight: `1px solid black !important`
+          },
+          '& .MuiTableCell-root.cell-border': {
+            border: `1px solid black !important`
           }
         }}
       >
         <Table size="small">
           <TableHead>
             {/* Title Row */}
-            <TableRow sx={{ backgroundColor: `${theme.palette.primary.main}` }}>
+            <TableRow sx={{ backgroundColor: `#eb8800` }}>
               <TableCell 
                 colSpan={colSpan}
                 sx={{ 
@@ -319,13 +366,14 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   color: 'white',
                   fontSize: '0.875rem'
                 }}
+                className="bold-border"
               >
-            {selectedDepartment} -- Loss of interest Report -- {currentWeekRange}
+            {sheetTitle}
               </TableCell>
             </TableRow>
 
             {/* Section Headers Row */}
-            <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.light, 0.8) }}>
+            <TableRow sx={{ backgroundColor: '#517bb8' }}>
           {isCC && (
                 <TableCell 
                   rowSpan={3}
@@ -335,6 +383,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                     color: 'white',
                     verticalAlign: 'middle'
                   }}
+                  className="cell-border"
                 >
                   Category
                 </TableCell>
@@ -342,11 +391,12 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
               <TableCell 
                 rowSpan={3}
                 sx={{ 
-                  textAlign: 'left',
+                  textAlign: 'center',
                   fontWeight: 600,
                   color: 'white',
                   verticalAlign: 'middle'
                 }}
+                className="column-border-left column-border-right"
               >
             Inquiry
               </TableCell>
@@ -357,6 +407,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   fontWeight: 600,
                   color: 'white'
                 }}
+                className="column-border-left column-border-right"
               >
             {currentWeekRange}
               </TableCell>
@@ -367,6 +418,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   fontWeight: 600,
                   color: 'white'
                 }}
+                className="column-border-left column-border-right"
               >
             Historical Data
               </TableCell>
@@ -377,41 +429,42 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                   fontWeight: 600,
                   color: 'white'
                 }}
+                className="column-border-left column-border-right"
               >
             Best Metrics
               </TableCell>
             </TableRow>
 
             {/* Date Ranges Row */}
-            <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.light, 0.8) }}>
-              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
+            <TableRow sx={{ backgroundColor: '#517bb8' }}>
+              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-left">
             Count
               </TableCell>
               <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
             Lost Interest %
               </TableCell>
-              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
+              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-right">
               7D cohort - 7DW %
               </TableCell>
-              <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
-            {prev1WeekRange}
+              <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-left">
+            {finalPrev1WeekRange}
               </TableCell>
               <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
-            {prev2WeekRange}
+            {finalPrev2WeekRange}
               </TableCell>
-              <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
-            {prev3WeekRange}
+              <TableCell colSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-right">
+            {finalPrev3WeekRange}
               </TableCell>
-              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
+              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-left">
             Lowest Lost Interest %
               </TableCell>
-              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }}>
+              <TableCell rowSpan={2} sx={{ textAlign: 'center', fontWeight: 600, color: 'white' }} className="column-border-right">
             Best 7D cohort - 7DW %
               </TableCell>
             </TableRow>
 
             {/* Column Headers Row */}
-            <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.light, 0.8) }}>
+            <TableRow sx={{ backgroundColor: '#517bb8' }}>
               {[...Array(6)].map((_, index) => (
                 <TableCell 
                   key={index}
@@ -445,28 +498,37 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                       backgroundColor: alpha(theme.palette.grey[100], 0.5),
                       verticalAlign: 'middle'
                     }}
+                    className="cell-border"
                   >
                     {row.category || '-'}
                   </TableCell>
                 )}
-                <TableCell sx={{ textAlign: 'left', fontWeight: 500 }}>
+                <TableCell sx={{ 
+                  textAlign: 'left', 
+                  fontWeight: 500
+                }}
+                className="column-border-left column-border-right">
                   {isCC ? (row.B || row.inquiry || 'N/A') : (row.A || row.inquiry || 'N/A')}
                 </TableCell>
                 
                 {/* Current week data */}
-                <TableCell sx={{ textAlign: 'center' }}>
+                <TableCell sx={{ textAlign: 'center' }} className="column-border-left">
                   {isCC ? (row.C || '-') : (row.B || '-')}
                 </TableCell>
                 <TableCell sx={{ textAlign: 'center' }}>
                   {isCC ? (row.D || '-') : (row.C || '-')}
                 </TableCell>
-                <TableCell sx={{ textAlign: 'center' }}>
+                <TableCell sx={{ textAlign: 'center' }} className="column-border-right">
                   {isCC ? (row.E || '-') : (row.D || '-')}
                 </TableCell>
                 
                 {/* Historical data */}
                 {[...Array(6)].map((_, cellIndex) => (
-                  <TableCell key={cellIndex} sx={{ textAlign: 'center' }}>
+                  <TableCell 
+                    key={cellIndex} 
+                    sx={{ textAlign: 'center' }}
+                    className={cellIndex === 0 ? 'column-border-left' : cellIndex === 5 ? 'column-border-right' : ''}
+                  >
                     {isCC ? 
                       (row[String.fromCharCode(70 + cellIndex)] || '-') : 
                       (row[String.fromCharCode(69 + cellIndex)] || '-')
@@ -475,10 +537,10 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                 ))}
                 
                 {/* Best metrics */}
-                <TableCell sx={{ textAlign: 'center', color: 'success.main', fontWeight: 500 }}>
+                <TableCell sx={{ textAlign: 'center', color: 'success.main', fontWeight: 500 }} className="column-border-left">
                   {isCC ? (row.L || '-') : (row.K || '-')}
                 </TableCell>
-                <TableCell sx={{ textAlign: 'center', color: 'success.main', fontWeight: 500 }}>
+                <TableCell sx={{ textAlign: 'center', color: 'success.main', fontWeight: 500 }} className="column-border-right">
                   {isCC ? (row.M || '-') : (row.L || '-')}
                 </TableCell>
               </TableRow>
