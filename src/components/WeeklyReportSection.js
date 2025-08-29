@@ -336,14 +336,17 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
     
     if (isRawData) {
       // Handle raw data (AT Filipina) with merged cell detection
-      // Define the expected headers for AT Filipina
-      const expectedHeaders = ['RECRUITMENT_STAGE', 'MAIN_REASON', 'SUB_REASON', 'MAIN_REASON_COUNT', 'SUB_REASON_COUNT'];
+      // Check if we need 5 or 6 columns based on the data structure
+      const hasSubReasonPct = rows.some(row => row.length >= 6 && row[5] !== undefined);
+      
+      console.log('  - hasSubReasonPct:', hasSubReasonPct);
+      console.log('  - actual headers:', headers);
       
       // Process the data to handle merged cells and format counts
       const processedRows = [];
       
       // First pass: identify merged cells within each column
-      expectedHeaders.forEach((header, colIndex) => {
+      headers.forEach((header, colIndex) => {
         let currentValue = null;
         let mergeStart = 0;
         
@@ -397,7 +400,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.8) }}>
-                {expectedHeaders.map((header, index) => (
+                {headers.map((header, index) => (
                   <TableCell
                     key={index}
                     sx={{
@@ -415,7 +418,7 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
             <TableBody>
               {processedRows.map((row, rIdx) => (
                 <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
-                  {expectedHeaders.map((header, cIdx) => {
+                  {headers.map((header, cIdx) => {
                     const cell = row[header];
                     
                     if (!cell || !cell.isFirstInMerge) {
@@ -425,17 +428,32 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                     
                     let displayValue = cell.value || '-';
                     
-                    // Format count columns
-                    if (header === 'MAIN_REASON_COUNT' || header === 'SUB_REASON_COUNT') {
+                    // Format count columns - check if header contains 'COUNT' to be flexible
+                    if (header.includes('COUNT')) {
                       if (displayValue !== '-') {
-                        // Try to extract the number and calculate percentage
+                        // For dates starting from 2025-08-28, show only the integer value
+                        // For earlier dates, show the calculated percentage
                         const countMatch = displayValue.toString().match(/(\d+)/);
                         if (countMatch) {
                           const count = parseInt(countMatch[1]);
-                          const total = rows.length; // Total data rows
-                          const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
-                          displayValue = `${count} (${percentage}%)`;
+                          if (hasSubReasonPct) {
+                            // New format: just show the count number
+                            displayValue = count.toString();
+                          } else {
+                            // Old format: show count with calculated percentage
+                            const total = rows.length; // Total data rows
+                            const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                            displayValue = `${count} (${percentage}%)`;
+                          }
                         }
+                      }
+                    }
+                    
+                    // Format percentage column if it exists - check if header contains 'PCT' to be flexible
+                    if (header.includes('PCT') && displayValue !== '-') {
+                      // If the value is already a number, add % symbol
+                      if (!isNaN(displayValue)) {
+                        displayValue = `${displayValue}%`;
                       }
                     }
                     
