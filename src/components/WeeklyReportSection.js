@@ -44,10 +44,14 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
   // Debug logging
   console.log('🔍 WeeklyReportSection Debug:');
   console.log('  - selectedDepartment:', selectedDepartment);
+  console.log('  - selectedDate:', selectedDate);
+  console.log('  - dashboardData:', dashboardData);
   console.log('  - lossOfInterestData:', lossOfInterestData);
   console.log('  - headers:', headers);
   console.log('  - headers[0]:', headers[0]);
   console.log('  - headers[2]:', headers[2]);
+  console.log('  - dashboardData.atFilipinaLossOfInterest:', dashboardData?.atFilipinaLossOfInterest);
+  console.log('  - dashboardData keys:', Object.keys(dashboardData || {}));
   
   // Extract title and date ranges from sheet headers
   const sheetTitle = headers[0] && headers[0][0] ? headers[0][0] : `${selectedDepartment} -- Loss of interest Report`;
@@ -327,49 +331,233 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
   );
 
   // Verbatim Loss of Interest table for AT departments
-  const VerbatimLossOfInterestTable = ({ headers, rows }) => {
-    const columnLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
-    const maxCols = Math.max(...[(headers || []).map(r => r.length), [columnLetters.length]].flat());
-
-    return (
-      <TableContainer component={Paper} sx={{ border: `1px solid ${alpha(theme.palette.divider, 0.2)}` }}>
-        <Table size="small">
-          <TableHead>
-            {(headers || []).map((headerRow, rIdx) => (
-              <TableRow key={rIdx} sx={{ backgroundColor: rIdx === 0 ? alpha(theme.palette.primary.main, 0.8) : alpha(theme.palette.primary.main, 0.05) }}>
-                {Array.from({ length: maxCols }).map((_, cIdx) => (
+  const VerbatimLossOfInterestTable = ({ headers, rows, isRawData }) => {
+    console.log('🔍 VerbatimLossOfInterestTable Debug:', { headers, rows, isRawData });
+    
+    if (isRawData) {
+      // Handle raw data (AT Filipina) with merged cell detection
+      // Define the expected headers for AT Filipina
+      const expectedHeaders = ['RECRUITMENT_STAGE', 'MAIN_REASON', 'SUB_REASON', 'MAIN_REASON_COUNT', 'SUB_REASON_COUNT'];
+      
+      // Process the data to handle merged cells and format counts
+      const processedRows = [];
+      
+      // First pass: identify merged cells within each column
+      expectedHeaders.forEach((header, colIndex) => {
+        let currentValue = null;
+        let mergeStart = 0;
+        
+        for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+          const cellValue = rows[rowIndex][colIndex] || '';
+          
+          if (rowIndex === 0) {
+            // First row - start new merge group
+            currentValue = cellValue;
+            mergeStart = 0;
+            processedRows[rowIndex] = processedRows[rowIndex] || {};
+            processedRows[rowIndex][header] = {
+              value: cellValue,
+              rowSpan: 1,
+              isFirstInMerge: true
+            };
+          } else {
+            if (cellValue === currentValue && cellValue !== '') {
+              // Continue merge group
+              processedRows[rowIndex] = processedRows[rowIndex] || {};
+              processedRows[rowIndex][header] = {
+                value: cellValue,
+                rowSpan: 1,
+                isFirstInMerge: false
+              };
+              
+              // Update the first cell in merge group to have correct rowSpan
+              processedRows[mergeStart][header].rowSpan = rowIndex - mergeStart + 1;
+            } else {
+              // Start new merge group
+              currentValue = cellValue;
+              mergeStart = rowIndex;
+              processedRows[rowIndex] = processedRows[rowIndex] || {};
+              processedRows[rowIndex][header] = {
+                value: cellValue,
+                rowSpan: 1,
+                isFirstInMerge: true
+              };
+            }
+          }
+        }
+      });
+      
+      return (
+        <TableContainer component={Paper} sx={{ 
+          border: `2px solid black`,
+          '& .MuiTableCell-root': {
+            border: `1px solid black`,
+          }
+        }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.8) }}>
+                {expectedHeaders.map((header, index) => (
                   <TableCell
-                    key={cIdx}
+                    key={index}
                     sx={{
                       fontWeight: 600,
-                      color: rIdx === 0 ? 'white' : 'inherit',
+                      color: 'white',
                       textAlign: 'center',
                       fontSize: '0.875rem'
                     }}
                   >
-                    {(headerRow && headerRow[cIdx]) || ''}
+                    {header}
                   </TableCell>
                 ))}
               </TableRow>
-            ))}
-          </TableHead>
-          <TableBody>
-            {(rows || []).map((row, rIdx) => (
-              <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
-                {Array.from({ length: maxCols }).map((_, cIdx) => {
-                  const key = columnLetters[cIdx];
-                  return (
-                    <TableCell key={cIdx} sx={{ textAlign: 'center', fontSize: '0.875rem' }}>
-                      {key ? (row?.[key] ?? '-') : '-'}
+            </TableHead>
+            <TableBody>
+              {processedRows.map((row, rIdx) => (
+                <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
+                  {expectedHeaders.map((header, cIdx) => {
+                    const cell = row[header];
+                    
+                    if (!cell || !cell.isFirstInMerge) {
+                      // This cell is part of a merge above, don't render
+                      return null;
+                    }
+                    
+                    let displayValue = cell.value || '-';
+                    
+                    // Format count columns
+                    if (header === 'MAIN_REASON_COUNT' || header === 'SUB_REASON_COUNT') {
+                      if (displayValue !== '-') {
+                        // Try to extract the number and calculate percentage
+                        const countMatch = displayValue.toString().match(/(\d+)/);
+                        if (countMatch) {
+                          const count = parseInt(countMatch[1]);
+                          const total = rows.length; // Total data rows
+                          const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+                          displayValue = `${count} (${percentage}%)`;
+                        }
+                      }
+                    }
+                    
+                    return (
+                      <TableCell 
+                        key={cIdx} 
+                        rowSpan={cell.rowSpan || 1}
+                        sx={{ 
+                          textAlign: 'center', 
+                          fontSize: '0.875rem',
+                          verticalAlign: 'middle'
+                        }}
+                      >
+                        {displayValue}
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      );
+    } else {
+      // Handle object-based data (other AT departments) or array-based data
+      const isObjectBased = rows.length > 0 && typeof rows[0] === 'object' && !Array.isArray(rows[0]);
+      
+      if (isObjectBased) {
+        // Handle object-based data (other AT departments)
+        const objectHeaders = headers;
+        const objectRows = rows;
+        
+        return (
+          <TableContainer component={Paper} sx={{ 
+            border: `2px solid black`,
+            '& .MuiTableCell-root': {
+              border: `1px solid black`,
+            }
+          }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ backgroundColor: alpha(theme.palette.primary.main, 0.8) }}>
+                  {objectHeaders.map((header, index) => (
+                    <TableCell
+                      key={index}
+                      sx={{
+                        fontWeight: 600,
+                        color: 'white',
+                        textAlign: 'center',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {header || ''}
                     </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    );
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {objectRows.map((row, rIdx) => (
+                  <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
+                    {objectHeaders.map((header, cIdx) => (
+                      <TableCell key={cIdx} sx={{ textAlign: 'center', fontSize: '0.875rem' }}>
+                        {row[header] || '-'}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        );
+      } else {
+        // Handle array-based data (other AT departments)
+        const columnLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
+        const maxCols = Math.max(...[(headers || []).map(r => r.length), [columnLetters.length]].flat());
+
+        return (
+          <TableContainer component={Paper} sx={{ 
+            border: `2px solid black`,
+            '& .MuiTableCell-root': {
+              border: `1px solid black`,
+            }
+          }}>
+            <Table size="small">
+              <TableHead>
+                {(headers || []).map((headerRow, rIdx) => (
+                  <TableRow key={rIdx} sx={{ backgroundColor: rIdx === 0 ? alpha(theme.palette.primary.main, 0.8) : alpha(theme.palette.primary.main, 0.05) }}>
+                    {Array.from({ length: maxCols }).map((_, cIdx) => (
+                      <TableCell
+                        key={cIdx}
+                        sx={{
+                          fontWeight: 600,
+                          color: rIdx === 0 ? 'white' : 'inherit',
+                          textAlign: 'center',
+                          fontSize: '0.875rem'
+                        }}
+                      >
+                        {(headerRow && headerRow[cIdx]) || ''}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHead>
+              <TableBody>
+                {(rows || []).map((row, rIdx) => (
+                  <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
+                    {Array.from({ length: maxCols }).map((_, cIdx) => {
+                      const key = columnLetters[cIdx];
+                      return (
+                        <TableCell key={cIdx} sx={{ textAlign: 'center', fontSize: '0.875rem' }}>
+                          {key ? (row?.[key] ?? '-') : '-'}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        );
+      }
+    }
   };
 
   // Desktop Table View with responsive headers
@@ -793,8 +981,8 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
         </Card>
       )}
 
-      {/* Loss of Interest Section - AT departments verbatim */}
-      {['AT Filipina', 'MaidsAT African', 'MaidsAT Ethiopian'].includes(selectedDepartment) && (
+      {/* Loss of Interest Section for AT departments */}
+      {selectedDepartment.includes('AT') && (
         <Card 
           id="loss-of-interest"
           sx={{ 
@@ -825,37 +1013,69 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                 Loss of Interest
               </Typography>
             </Box>
-            
-            {(() => {
-              // For AT departments, print dashboardData.lossOfInterest.headers and rows verbatim
-              const headers = dashboardData.lossOfInterest?.headers || [];
-              const rows = dashboardData.lossOfInterest?.data || [];
               
-              if (!headers.length || rows.length === 0) {
-                return (
-                  <Box sx={{ 
-                    textAlign: 'center', 
-                    py: 8, 
-                    color: 'text.secondary',
-                    background: alpha(theme.palette.info.main, 0.05),
-                    borderRadius: 2,
-                    border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`
-                  }}>
-                    <Typography variant="h1" sx={{ fontSize: '3rem', mb: 2 }}>⏳</Typography>
-                    <Typography variant="body1" sx={{ fontWeight: 500, mb: 1 }}>
-                      Data not available
-                    </Typography>
-                  </Box>
-                );
-              }
-              
-              return (
-                <VerbatimLossOfInterestTable headers={headers} rows={rows} />
-              );
-            })()}
-          </CardContent>
-        </Card>
-      )}
+              {(() => {
+                console.log('🔍 Loss of Interest Section Debug:');
+                console.log('  - selectedDepartment:', selectedDepartment);
+                console.log('  - dashboardData:', dashboardData);
+                
+                if (selectedDepartment === 'AT Filipina') {
+                  const atFilipinaData = dashboardData?.atFilipinaLossOfInterest || [];
+                  console.log('  - atFilipinaData:', atFilipinaData);
+                  
+                  if (atFilipinaData.length > 0) {
+                    // For AT Filipina, we now have raw data (array of arrays)
+                    // First row is headers, rest are data rows
+                    const headers = atFilipinaData[0] || [];
+                    const dataRows = atFilipinaData.slice(1) || [];
+                    
+                    console.log('  - extracted headers:', headers);
+                    console.log('  - data rows:', dataRows);
+                    
+                    return (
+                      <VerbatimLossOfInterestTable 
+                        headers={headers} 
+                        rows={dataRows}
+                        isRawData={true}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No AT Filipina Loss of Interest data available for {selectedDate}
+                      </Typography>
+                    );
+                  }
+                } else {
+                  // For other AT departments, use the general loss of interest data
+                  const generalLossOfInterest = dashboardData?.lossOfInterest || {};
+                  const headers = generalLossOfInterest.headers || [];
+                  const data = generalLossOfInterest.data || [];
+                  
+                  console.log('  - generalLossOfInterest:', generalLossOfInterest);
+                  console.log('  - extracted headers:', headers);
+                  console.log('  - converted rows:', data);
+                  
+                  if (headers.length > 0 && data.length > 0) {
+                    return (
+                      <VerbatimLossOfInterestTable 
+                        headers={headers} 
+                        rows={data}
+                        isRawData={false}
+                      />
+                    );
+                  } else {
+                    return (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        No Loss of Interest data available for {selectedDepartment} on {selectedDate}
+                      </Typography>
+                    );
+                  }
+                }
+              })()}
+            </CardContent>
+          </Card>
+        )}
     </Box>
   );
 };

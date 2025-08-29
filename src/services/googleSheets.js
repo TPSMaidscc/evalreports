@@ -177,8 +177,12 @@ export const getSheetIdForDateTab = async (dateTabName) => {
 
 // Utility function to format date for sheet name with fallbacks
 const formatDateForSheetName = (dateString) => {
+  console.log(`🔍 formatDateForSheetName Debug:`, { dateString, type: typeof dateString });
   const date = new Date(dateString);
-  return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+  console.log(`🔍 Parsed date:`, date);
+  const result = date.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+  console.log(`🔍 Formatted result:`, result);
+  return result;
 };
 
 // Helper function to get the correct spreadsheet ID for AT Filipina sub-departments
@@ -732,7 +736,7 @@ const parsePercentage = (str) => {
 // Helper function to parse repetition format "3.67%(9)" to get percentage
 const parseRepetitionPercentage = (str) => {
   if (!str || typeof str !== 'string') return 0;
-  const match = str.match(/^(\d+\.?\d*)%/);
+  const match = str.match(/^(\d+\.?\d*)%\)/);
   return match ? parseFloat(match[1]) : 0;
 };
 
@@ -2798,6 +2802,8 @@ export const fetchATFilipinaLossOfInterest = async (date) => {
     
     console.log(`=== AT FILIPINA LOSS OF INTEREST DEBUG ===`);
     console.log(`Date parameter received: ${date}`);
+    console.log(`Date type: ${typeof date}`);
+    console.log(`Date constructor: ${date.constructor.name}`);
     console.log(`Formatted date: ${formatDateForSheetName(date)}`);
     console.log(`Target sheet name: ${sheetName}`);
     console.log(`Spreadsheet ID: ${spreadsheetId}`);
@@ -2912,36 +2918,13 @@ export const fetchATFilipinaLossOfInterest = async (date) => {
       return [];
     }
     
-    // Skip the header row and convert to objects
-    const headers = data[0];
-    const rows = data.slice(1);
-    
-    console.log(`Headers:`, headers);
-    console.log(`Data rows:`, rows);
-    console.log(`Number of data rows: ${rows.length}`);
-    
-    // Check if headers are valid
-    if (!headers || headers.length === 0) {
-      console.log(`❌ No valid headers found in first row`);
-      return [];
-    }
-    
-    const lossOfInterestData = rows.map(row => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        obj[header] = row[index] || '';
-      });
-      return obj;
-    }).filter(item => {
-      // Filter out completely empty rows
-      return Object.values(item).some(value => value && value.toString().trim() !== '');
-    });
-    
-    console.log('AT Filipina Loss of Interest data processed:', lossOfInterestData);
-    console.log(`Final processed data length: ${lossOfInterestData.length}`);
+    // Return raw data to preserve merged cell structure
+    // The first row will be treated as headers, and merged cells will be detected during rendering
+    console.log('AT Filipina Loss of Interest raw data returned for merged cell handling');
+    console.log(`Final data length: ${data.length}`);
     console.log(`=== END DEBUG ===`);
     
-    return lossOfInterestData;
+    return data;
     
   } catch (error) {
     console.error('Error fetching AT Filipina Loss of Interest data:', error);
