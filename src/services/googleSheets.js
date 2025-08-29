@@ -1301,6 +1301,90 @@ const getSheetGidByName = async (spreadsheetId, sheetName) => {
   }
 };
 
+// Function to get sheet title by GID
+const getSheetTitleByGid = async (spreadsheetId, gid) => {
+  try {
+    const url = `${GOOGLE_SHEETS_BASE_URL}/${spreadsheetId}?key=${GOOGLE_SHEETS_API_KEY}`;
+    const corsProxies = [
+      `https://corsproxy.io/?${encodeURIComponent(url)}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+      url
+    ];
+    for (const proxyUrl of corsProxies) {
+      try {
+        const response = await fetch(proxyUrl);
+        if (!response.ok) continue;
+        let data = await response.json();
+        if (proxyUrl.includes('allorigins.win') && data.contents) {
+          data = JSON.parse(data.contents);
+        }
+        const sheet = data.sheets?.find(s => s.properties?.sheetId === Number(gid));
+        if (sheet) {
+          return sheet.properties.title;
+        }
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting sheet title by GID:', error);
+    return null;
+  }
+};
+
+// Fetch a table (array of objects) by spreadsheet ID and sheet GID
+export const fetchTableByGid = async (spreadsheetId, gid) => {
+  try {
+    const title = await getSheetTitleByGid(spreadsheetId, gid);
+    if (!title) {
+      throw new Error('Sheet title not found for provided gid');
+    }
+    const values = await fetchSheetData(spreadsheetId, `${title}!A:Z`);
+    if (!values || !Array.isArray(values) || values.length === 0) {
+      return [];
+    }
+    const [headers, ...rows] = values;
+    // Normalize headers (trim)
+    const headerKeys = headers.map(h => (h || '').toString().trim());
+    const table = rows.map(r => {
+      const obj = {};
+      headerKeys.forEach((key, idx) => {
+        obj[key || `Column ${idx + 1}`] = (r[idx] !== undefined && r[idx] !== null && r[idx] !== '') ? r[idx] : '-';
+      });
+      return obj;
+    });
+    return table;
+  } catch (error) {
+    console.error('Error fetching table by GID:', error);
+    return [];
+  }
+};
+
+// Fetch a table (array of objects) by spreadsheet ID and sheet NAME
+export const fetchTableBySheetName = async (spreadsheetId, sheetName) => {
+  try {
+    const values = await fetchSheetData(spreadsheetId, `${sheetName}!A:Z`);
+    if (!values || !Array.isArray(values) || values.length === 0) {
+      return [];
+    }
+    const [headers, ...rows] = values;
+    const headerKeys = (headers || []).map(h => (h || '').toString().trim());
+    const table = rows.map(r => {
+      const obj = {};
+      headerKeys.forEach((key, idx) => {
+        obj[key || `Column ${idx + 1}`] = (r[idx] !== undefined && r[idx] !== null && r[idx] !== '') ? r[idx] : '-';
+      });
+      return obj;
+    });
+    return table;
+  } catch (error) {
+    console.error('Error fetching table by sheet name:', { spreadsheetId, sheetName, error });
+    return [];
+  }
+};
+
 // Function to navigate to raw data sheet for Total Number of Chats
 export const navigateToRawDataSheet = async (department, date, subDepartment = 'All') => {
   try {

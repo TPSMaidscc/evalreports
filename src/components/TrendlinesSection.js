@@ -214,10 +214,15 @@ const TrendlinesSection = ({ selectedDepartment, dashboardData }) => {
 
             {/* Cost Subplots */}
             <Box>
-              <ChartContainer id="cost-subplot" title="Cost Analysis">
+              <ChartContainer 
+                id="cost-subplot" 
+                title={['AT Filipina','MaidsAT Ethiopian','MaidsAT African'].includes(selectedDepartment) ? 'Cost Analysis – All AT departments' : 'Cost Analysis'}
+              >
                 <StackedSubplots 
-                  title="Cost Analysis"
-                  data={dashboardData.trendlines.costData.filter(item => item.last30DaysCost !== null)}
+                  title={['AT Filipina','MaidsAT Ethiopian','MaidsAT African'].includes(selectedDepartment) ? 'Cost Analysis – All AT departments' : 'Cost Analysis'}
+                  data={(dashboardData.trendlines && Array.isArray(dashboardData.trendlines.costData))
+                    ? (dashboardData.trendlines.costData.filter(item => item && (item.last30DaysCost !== null && item.last30DaysCost !== undefined)))
+                    : (dashboardData.trendlines?.costData || [])}
                   metrics={createChartData(dashboardData, 'cost').metrics}
                 />
               </ChartContainer>

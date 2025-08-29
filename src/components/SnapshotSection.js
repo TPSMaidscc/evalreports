@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -289,7 +289,8 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
       inChatPoke: true,
       fullyHandledBot: true,
       verbatimRepeated: true,
-      similarityEighty: true
+      similarityEighty: true,
+      shadowedChatsAssigned: true
     });
 
   // Loading states for metric navigation
@@ -643,6 +644,16 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
     } catch (error) {
       console.error('Error navigating to Clients Questioning Legalties sheet:', error);
       alert('Error opening Clients Questioning Legalties sheet. Please try again.');
+    }
+  };
+
+  // Generic click for policy metrics (Missing/Unclear/Wrong Answers)
+  const handlePolicyMetricsClick = () => {
+    try {
+      window.open('https://docs.google.com/spreadsheets/d/1wOSiIAbxgCPUIJXbZFXB6TwCBHAutGeSsjM9JOEgrrY/edit?gid=624150201#gid=624150201', '_blank');
+    } catch (error) {
+      console.error('Error opening policy metrics sheet:', error);
+      alert('Error opening policy metrics sheet. Please try again.');
     }
   };
 
@@ -1379,9 +1390,11 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                 ...(selectedDepartment === 'CC Sales' || selectedDepartment === 'MV Sales' ? [
                   { label: "Fully Handled by bot (excluding agent pokes)", fieldName: "Fully Handled by bot (excluding agent pokes)" }
                 ] : []),
-                { label: "Chats with at least 2 agent messages", fieldName: "Chats with at least 1 agent message" },
-                { label: "Chats with at least 3 agent messages", fieldName: "Chats with at least 2 agent messages" },
-                { label: "Chats with at least 5 agent messages", fieldName: "Chats with at least 3 agent messages" }
+                ...(selectedDepartment !== 'MV Resolvers' ? [
+                  { label: "Chats with at least 2 agent messages", fieldName: "Chats with at least 1 agent message" },
+                  { label: "Chats with at least 3 agent messages", fieldName: "Chats with at least 2 agent messages" },
+                  { label: "Chats with at least 5 agent messages", fieldName: "Chats with at least 3 agent messages" }
+                ] : [])
               ]}
             />
                     
@@ -1739,8 +1752,46 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                         </Typography>
                       </Box>
                       <Stack spacing={1}>
-                        <MetricRow label="Missing policy %" fieldName="Missing policy %" icon={SnowflakeIcon} />
-                        <MetricRow label="Unclear policy %" fieldName="Unclear policy %" icon={SnowflakeIcon} />
+                        {selectedDepartment === 'AT Filipina' ? (
+                          <MetricRow 
+                            label="Missing policy %" 
+                            fieldName="Missing policy %" 
+                            icon={SnowflakeIcon}
+                            clickHandler={handlePolicyMetricsClick}
+                            isClickable={true}
+                          />
+                        ) : (
+                          <MetricRow 
+                            label="Missing policy %" 
+                            fieldName="Missing policy %" 
+                            icon={SnowflakeIcon}
+                          />
+                        )}
+                        {selectedDepartment === 'AT Filipina' ? (
+                          <MetricRow 
+                            label="Unclear policy %" 
+                            fieldName="Unclear policy %" 
+                            icon={SnowflakeIcon}
+                            clickHandler={handlePolicyMetricsClick}
+                            isClickable={true}
+                          />
+                        ) : (
+                          <MetricRow 
+                            label="Unclear policy %" 
+                            fieldName="Unclear policy %" 
+                            icon={SnowflakeIcon}
+                          />
+                        )}
+                        {selectedDepartment === 'AT Filipina' && (
+                          <MetricRow 
+                            label="Wrong Answers %" 
+                            fieldName="Wrong policy" 
+                            icon={SnowflakeIcon}
+                            showTooltip={true}
+                            clickHandler={handlePolicyMetricsClick}
+                            isClickable={true}
+                          />
+                        )}
                       </Stack>
                     </Box>
                   </Stack>
@@ -1780,13 +1831,17 @@ const SnapshotSection = ({ selectedDepartment, selectedDate, dashboardData, sele
                   </Box>
                   
                   <Stack spacing={1}>
-                    <MetricRow
+                    <ExpandableMetricRow
                       icon={SnowflakeIcon}
                       label="Chats shadowed %"
                       fieldName="Chats shadowed %"
+                      metricKey="shadowedChatsAssigned"
                       clickHandler={handleChatsShadowedClick}
                       isClickable={!['MaidsAT African', 'MaidsAT Ethiopian', 'AT Filipina'].includes(selectedDepartment)}
                       loading={loadingStates.shadowing}
+                      subMetrics={selectedDepartment === 'Doctors' ? [
+                        { label: 'Shadowed chats assigned to agent %', fieldName: 'Shadowed chats assigned to agent %' }
+                      ] : []}
                     />
                     <MetricRow label="Reported issue (#)" icon={SnowflakeIcon} fieldName="Reported issue (#)" />
                     <MetricRow label="Issues pending to be solved (#)" icon={SnowflakeIcon} fieldName="Issues pending to be solved (#)" />

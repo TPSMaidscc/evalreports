@@ -225,18 +225,34 @@ const SnapshotValueRenderer = ({ fieldName, dashboardData, selectedDepartment })
     return <span className={`text-sm font-medium ${shouldBeItalic(actualValue) ? 'italic' : ''}`}>{actualValue}</span>;
   }
   
-  // Special handling for Call Request % - combine with Rebuttal Result %
+  // Special handling for Call Request % - stacked with Rebuttal Result % on next line
   if (fieldName === 'Call Request %') {
-    const callRequestValue = actualValue || 'N/A';
+    const formatPercent = (val) => {
+      if (!val) return 'N/A';
+      if (typeof val === 'string' && val.includes('%')) return val;
+      const num = parseFloat(val);
+      if (!isNaN(num)) return `${Math.round(num)}%`;
+      return val;
+    };
+
+    const callRequestDisplay = formatPercent(actualValue || 'N/A');
     const rebuttalResultKey = getDataKey('Rebuttal Result %');
-    const rebuttalResultValue = dashboardData.snapshot[rebuttalResultKey] || 'N/A';
-    
-    if (callRequestValue === 'N/A' && rebuttalResultValue === 'N/A') {
-      return <span className="text-sm font-medium italic">N/A</span>;
+    const rebuttalRaw = dashboardData.snapshot[rebuttalResultKey];
+    const rebuttalDisplay = rebuttalRaw ? formatPercent(rebuttalRaw) : null;
+
+    // If no rebuttal value, render call request as usual
+    if (!rebuttalDisplay || rebuttalDisplay === 'N/A') {
+      return (
+        <span className={`text-sm font-medium ${shouldBeItalic(callRequestDisplay) ? 'italic' : ''}`}>{callRequestDisplay}</span>
+      );
     }
-    
-    const formattedValue = `${callRequestValue} (${rebuttalResultValue} Unretained)`;
-    return <span className={`text-sm font-medium ${shouldBeItalic(callRequestValue) || shouldBeItalic(rebuttalResultValue) ? 'italic' : ''}`}>{formattedValue}</span>;
+
+    return (
+      <div className="text-right">
+        <div className={`text-sm font-medium ${shouldBeItalic(callRequestDisplay) ? 'italic' : ''}`}>{callRequestDisplay}</div>
+        <div className={`text-sm font-medium ${shouldBeItalic(rebuttalDisplay) ? 'italic' : ''}`}>{rebuttalDisplay} Unretained</div>
+      </div>
+    );
   }
 
   // Special handling for Clients Questioning Legalties % - combine with Escalation Outcome

@@ -30,6 +30,7 @@ import RuleBreakingSection from './RuleBreakingSection';
 import TrendlinesSection from './TrendlinesSection';
 import AllChatbotsSummary from './AllChatbotsSummary';
 import LLMCostAnalysis from './LLMCostAnalysis';
+import DoctorsExtraTables from './DoctorsExtraTables';
 
 const Dashboard = () => {
   const theme = useTheme();
@@ -383,6 +384,18 @@ const Dashboard = () => {
                       onATFilipinaSubDeptChange={handleATFilipinaSubDeptChange}
                     />
                     </motion.div>
+
+                {/* Doctors: Two tables under Snapshots and above Trendlines */}
+                {selectedDepartment === 'Doctors' && (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.18 }}
+                    style={{ marginBottom: '24px' }}
+                  >
+                    <DoctorsExtraTables selectedDate={selectedDate} />
+                  </motion.div>
+                )}
 
                 {/* Section 4: Conversion Funnel */}
                 <motion.div

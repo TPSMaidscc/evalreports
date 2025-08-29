@@ -180,7 +180,6 @@ const TransferInterventionSection = ({ dashboardData, selectedDepartment, select
                  cursor: 'pointer',
                  transition: 'all 0.2s ease-in-out',
                  '&:hover': {
-                   textDecoration: 'underline',
                    color: theme.palette.primary.dark
                  }
                }}
@@ -191,6 +190,9 @@ const TransferInterventionSection = ({ dashboardData, selectedDepartment, select
                onClick={!sheetId ? fetchSheetId : undefined}
              >
                              Transfer and intervention analysis
+               <span style={{ fontStyle: 'italic', fontSize: '0.85em', marginLeft: 8, textDecoration: 'underline' }}>
+                 (click for raw data)
+               </span>
                {isLoadingSheetId && (
                  <span style={{ marginLeft: '8px', fontSize: '0.8em', opacity: 0.7 }}>
                    🔄

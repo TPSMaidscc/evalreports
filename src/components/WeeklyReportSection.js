@@ -326,6 +326,52 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
     </TableContainer>
   );
 
+  // Verbatim Loss of Interest table for AT departments
+  const VerbatimLossOfInterestTable = ({ headers, rows }) => {
+    const columnLetters = ['A','B','C','D','E','F','G','H','I','J','K','L','M'];
+    const maxCols = Math.max(...[(headers || []).map(r => r.length), [columnLetters.length]].flat());
+
+    return (
+      <TableContainer component={Paper} sx={{ border: `1px solid ${alpha(theme.palette.divider, 0.2)}` }}>
+        <Table size="small">
+          <TableHead>
+            {(headers || []).map((headerRow, rIdx) => (
+              <TableRow key={rIdx} sx={{ backgroundColor: rIdx === 0 ? alpha(theme.palette.primary.main, 0.8) : alpha(theme.palette.primary.main, 0.05) }}>
+                {Array.from({ length: maxCols }).map((_, cIdx) => (
+                  <TableCell
+                    key={cIdx}
+                    sx={{
+                      fontWeight: 600,
+                      color: rIdx === 0 ? 'white' : 'inherit',
+                      textAlign: 'center',
+                      fontSize: '0.875rem'
+                    }}
+                  >
+                    {(headerRow && headerRow[cIdx]) || ''}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableHead>
+          <TableBody>
+            {(rows || []).map((row, rIdx) => (
+              <TableRow key={rIdx} sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(theme.palette.primary.main, 0.02) } }}>
+                {Array.from({ length: maxCols }).map((_, cIdx) => {
+                  const key = columnLetters[cIdx];
+                  return (
+                    <TableCell key={cIdx} sx={{ textAlign: 'center', fontSize: '0.875rem' }}>
+                      {key ? (row?.[key] ?? '-') : '-'}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  };
+
   // Desktop Table View with responsive headers
   const DesktopWeeklyReportTable = ({ data, isCC }) => {
     const colSpan = isCC ? 13 : 12;
@@ -711,42 +757,44 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
 
   return (
     <Box>
-      <Card 
-        id="weekly-report"
-        sx={{ 
-          mb: 3,
-          borderRadius: 2,
-          boxShadow: theme.shadows[2],
-          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-        }}
-      >
-        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 2, 
+      {!['AT Filipina', 'MaidsAT African', 'MaidsAT Ethiopian'].includes(selectedDepartment) && (
+        <Card 
+          id="weekly-report"
+          sx={{ 
             mb: 3,
-            flexDirection: { xs: 'column', sm: 'row' },
-            textAlign: { xs: 'center', sm: 'left' }
-          }}>
-            <AssessmentIcon sx={{ color: 'primary.main', fontSize: 28 }} />
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                fontWeight: 700,
-                color: 'text.primary',
-                fontSize: { xs: '1.25rem', md: '1.5rem' }
-              }}
-            >
-              Weekly Report
-            </Typography>
-          </Box>
-        {renderWeeklyReportContent()}
-        </CardContent>
-      </Card>
+            borderRadius: 2,
+            boxShadow: theme.shadows[2],
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2, 
+              mb: 3,
+              flexDirection: { xs: 'column', sm: 'row' },
+              textAlign: { xs: 'center', sm: 'left' }
+            }}>
+              <AssessmentIcon sx={{ color: 'primary.main', fontSize: 28 }} />
+              <Typography 
+                variant="h5" 
+                sx={{ 
+                  fontWeight: 700,
+                  color: 'text.primary',
+                  fontSize: { xs: '1.25rem', md: '1.5rem' }
+                }}
+              >
+                Weekly Report
+              </Typography>
+            </Box>
+          {renderWeeklyReportContent()}
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Loss of Interest Section - Only for AT Filipina */}
-      {selectedDepartment === 'AT Filipina' && (
+      {/* Loss of Interest Section - AT departments verbatim */}
+      {['AT Filipina', 'MaidsAT African', 'MaidsAT Ethiopian'].includes(selectedDepartment) && (
         <Card 
           id="loss-of-interest"
           sx={{ 
@@ -779,16 +827,11 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
             </Box>
             
             {(() => {
-              const lossOfInterestData = dashboardData.atFilipinaLossOfInterest || [];
+              // For AT departments, print dashboardData.lossOfInterest.headers and rows verbatim
+              const headers = dashboardData.lossOfInterest?.headers || [];
+              const rows = dashboardData.lossOfInterest?.data || [];
               
-              console.log(`🔍 WeeklyReportSection - AT Filipina Loss of Interest Debug:`);
-              console.log(`  - selectedDepartment: ${selectedDepartment}`);
-              console.log(`  - dashboardData keys:`, Object.keys(dashboardData));
-              console.log(`  - atFilipinaLossOfInterest:`, lossOfInterestData);
-              console.log(`  - Data length: ${lossOfInterestData.length}`);
-              
-              if (lossOfInterestData.length === 0) {
-                console.log(`  - No data available - showing empty state`);
+              if (!headers.length || rows.length === 0) {
                 return (
                   <Box sx={{ 
                     textAlign: 'center', 
@@ -806,19 +849,8 @@ const WeeklyReportSection = ({ selectedDepartment, selectedDate, dashboardData }
                 );
               }
               
-              console.log(`  - Data available - rendering table`);
-              // Create table headers from the first row of data
-              const headers = Object.keys(lossOfInterestData[0] || {});
-              console.log(`  - Headers:`, headers);
-              
               return (
-                <Box>
-                  {isMobile ? (
-                    <MobileLossOfInterestCard data={lossOfInterestData} />
-                  ) : (
-                    <DesktopLossOfInterestTable data={lossOfInterestData} headers={headers} />
-                  )}
-                </Box>
+                <VerbatimLossOfInterestTable headers={headers} rows={rows} />
               );
             })()}
           </CardContent>
